@@ -23,6 +23,7 @@ import androidx.core.content.FileProvider
 import com.google.android.gms.location.LocationServices
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
@@ -31,6 +32,8 @@ import java.io.File
 import java.net.URLEncoder
 import java.net.URL
 import java.nio.charset.Charset
+import kotlin.math.PI
+import kotlin.math.cos
 
 class MainActivity : ComponentActivity() {
 
@@ -103,7 +106,8 @@ fun GpxGeneratorScreen() {
             if (coords.isNotEmpty() && apiKey.isNotEmpty()) {
                 try {
                     // Запрашиваем список мест через Places API
-                    val places = fetchNearbyPlaces(coords, apiKey)
+                    // Разбиваем на сетку ~500м и собираем все места
+                    val places = fetchPlacesByGrid(coords, apiKey)
 
                     // Конвертим результат в GPX
                     val gpxString = convertPlacesToGpx(places)
@@ -189,34 +193,90 @@ fun GpxGeneratorScreen() {
     }
 }
 
+// ==================================================================
+// Функции для «сетки», запросов к Places и генерации GPX
+// ==================================================================
+
 /**
- * Функция для запроса в Google Places API
- *
- * @param coords строка "lat,lng"
- * @param apiKey ваш Google Places API Key
+ * Разбивает площадь ±1000 м от центра на «квадратики» 500 м
+ * и для каждой точки делает запрос по радиусу ~300–500 м.
+ * Собирает результаты в Set (убирая дубли), потом выдаёт как List.
  */
-@Throws(Exception::class)
-fun fetchNearbyPlaces(coords: String, apiKey: String): List<PlaceInfo> {
-    // Пример запроса на "Nearby Search" Google Places
-    // Документация: https://developers.google.com/places/web-service/search
-    // Ключевые параметры: location, radius, type
-    // Здесь мы ищем достопримечательности (tourist_attraction), радиус условный (6000 м)
+suspend fun fetchPlacesByGrid(coords: String, apiKey: String): List<PlaceInfo> {
+    val (centerLat, centerLng) = coords.split(",").map { it.toDouble() }
 
-    val (lat, lng) = coords.split(",").map { it.trim() }
-    val locationParam = "$lat,$lng"
-    val radius = 6000
-    val type = "tourist_attraction"
+    // Устанавливаем «параметры сетки»
+    val halfSideMeters = 3000.0  // ±1000 м от центра (итого 2км)
+    val stepMeters = 500.0       // размер «клетки» = 500 м
+    val requestRadius = 300      // радиус для Google Places в каждой точке
+
+    val latDegreePerMeter = 1.0 / 111320.0  // приблизительно ~ 1 градус широты = 111,320 м
+    val cosLat = cos(centerLat * PI / 180.0)
+    val lonDegreePerMeter = 1.0 / (111320.0 * cosLat)
+
+    val results = mutableSetOf<PlaceInfo>()
+
+    // Определим, сколько «шагов» в каждую сторону
+    // Например, 2км / 500м = 4 шага. Но т.к. начинается от -1000 до +1000 включительно, это 5 точек.
+    val stepsCount = ((2 * halfSideMeters) / stepMeters).toInt() // (2000 / 500) = 4, но ниже мы будем идти 0..4
+
+    for (i in 0..stepsCount) {
+        // Сколько метров сместиться от центра по широте
+        val offsetMetersLat = -halfSideMeters + i * stepMeters
+        val offsetLatDegrees = offsetMetersLat * latDegreePerMeter
+
+        for (j in 0..stepsCount) {
+            val offsetMetersLon = -halfSideMeters + j * stepMeters
+            val offsetLonDegrees = offsetMetersLon * lonDegreePerMeter
+
+            // Рассчитываем координаты «ячейки»
+            val cellLat = centerLat + offsetLatDegrees
+            val cellLon = centerLng + offsetLonDegrees
+
+            // Делаем запрос для этой ячейки
+            val placesInCell = fetchNearbyPlacesSinglePage(
+                latitude = cellLat,
+                longitude = cellLon,
+                radius = requestRadius,
+                type = "tourist_attraction",
+                apiKey = apiKey
+            )
+            results.addAll(placesInCell)
+
+            // Чтобы не «заспамить» Google запросами, небольшая задержка
+            delay(300)
+        }
+    }
+
+    return results.toList()
+}
+
+/**
+ * Делаем одиночный запрос Places Nearby Search на одну «ячейку»
+ * (без пейджинга, возвращает до 20 результатов).
+ */
+fun fetchNearbyPlacesSinglePage(
+    latitude: Double,
+    longitude: Double,
+    radius: Int,
+    type: String,
+    apiKey: String
+): List<PlaceInfo> {
+    val baseUrl = "https://maps.googleapis.com/maps/api/place/nearbysearch/json"
+    val locationParam = "$latitude,$longitude"
     val encodedLocation = URLEncoder.encode(locationParam, "UTF-8")
-    val urlString =
-        "https://maps.googleapis.com/maps/api/place/nearbysearch/json?" +
-                "location=$encodedLocation&radius=$radius&type=$type&key=$apiKey"
 
-    val url = URL(urlString)
-    val response = url.readText()
+    // Сформируем URL. Если надо, можно добавить &keyword=..., &language=..., etc.
+    val urlString = "$baseUrl?" +
+            "location=$encodedLocation&" +
+            "radius=$radius&" +
+            "type=$type&" +
+            "key=$apiKey"
 
-    // Разбираем JSON (очень упрощённый парсинг)
+    val response = URL(urlString).readText()
     val jsonObject = JSONObject(response)
-    val resultsArray = jsonObject.getJSONArray("results")
+
+    val resultsArray = jsonObject.optJSONArray("results") ?: return emptyList()
     val placeList = mutableListOf<PlaceInfo>()
 
     for (i in 0 until resultsArray.length()) {

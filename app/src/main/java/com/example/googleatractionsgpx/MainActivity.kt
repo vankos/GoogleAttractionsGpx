@@ -298,7 +298,8 @@ fun fetchNearbyPlacesSinglePage(
 
         // Для ссылки на гугл-карты можно использовать https://maps.google.com/?q=PLACE_ID
         // или более осмысленно – https://www.google.com/maps/place/?q=place_id:PLACE_ID
-        val googleMapsLink = "https://www.google.com/maps/place/?q=place_id:$placeId"
+        val rawLink = "https://www.google.com/maps/search/?api=1&query=Google&query_place_id=$placeId"
+        val escapedLink = rawLink.replace("&", "&amp;")
 
         placeList.add(
             PlaceInfo(
@@ -307,7 +308,7 @@ fun fetchNearbyPlacesSinglePage(
                 longitude = lngResult,
                 rating = rating,
                 userRatingsTotal = userRatingsTotal,
-                mapsLink = googleMapsLink
+                mapsLink = escapedLink
             )
         )
     }

@@ -200,11 +200,11 @@ fun fetchNearbyPlaces(coords: String, apiKey: String): List<PlaceInfo> {
     // Пример запроса на "Nearby Search" Google Places
     // Документация: https://developers.google.com/places/web-service/search
     // Ключевые параметры: location, radius, type
-    // Здесь мы ищем достопримечательности (tourist_attraction), радиус условный (2000 м)
+    // Здесь мы ищем достопримечательности (tourist_attraction), радиус условный (6000 м)
 
     val (lat, lng) = coords.split(",").map { it.trim() }
     val locationParam = "$lat,$lng"
-    val radius = 2000
+    val radius = 6000
     val type = "tourist_attraction"
     val encodedLocation = URLEncoder.encode(locationParam, "UTF-8")
     val urlString =

@@ -107,14 +107,9 @@ fun GpxGeneratorScreen() {
 
                     // Конвертим результат в GPX
                     val gpxString = convertPlacesToGpx(places)
-
-                    withContext(Dispatchers.Main) {
-                        gpxResult = gpxString
-                    }
-
                     val fileName = getFileName()
                     val file = File(context.getExternalFilesDir(null),fileName)
-                    file.writeText(gpxResult, Charset.defaultCharset())
+                    file.writeText(gpxString, Charset.defaultCharset())
                     val uri: Uri = FileProvider.getUriForFile(context, "com.example.googleatractionsgpx.fileProvider", file)
 
                     val intent = Intent(Intent.ACTION_VIEW).apply {

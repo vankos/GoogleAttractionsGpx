@@ -101,6 +101,9 @@ fun GpxGeneratorScreen() {
     fun generateGpx() {
         val scope = CoroutineScope(Dispatchers.IO)
         scope.launch {
+            withContext(Dispatchers.Main) {
+                gpxResult = "Загрузка"
+            }
             val coords = coordinatesText.text.trim()
             val apiKey = apiKeyText.text.trim()
             if (coords.isNotEmpty() && apiKey.isNotEmpty()) {
@@ -119,6 +122,9 @@ fun GpxGeneratorScreen() {
                     val intent = Intent(Intent.ACTION_VIEW).apply {
                         setDataAndType(uri, "application/octet-stream")
                         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    }
+                    withContext(Dispatchers.Main) {
+                        gpxResult = "Готово"
                     }
 
                     context.startActivity(Intent.createChooser(intent, "Open test.gpx"))

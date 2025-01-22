@@ -1,6 +1,7 @@
 package com.example.googleatractionsgpx
 
 import android.Manifest
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.location.Location
@@ -59,9 +60,23 @@ class MainActivity : ComponentActivity() {
 fun GpxGeneratorScreen() {
     val context = LocalContext.current
 
+    // В SharedPreferences мы сохраним только API-ключ
+    val sharedPrefs = remember {
+        context.getSharedPreferences("MY_APP_PREFS", Context.MODE_PRIVATE)
+    }
+
+    // Координаты
     var coordinatesText by remember { mutableStateOf(TextFieldValue("")) }
+    // API Key
     var apiKeyText by remember { mutableStateOf(TextFieldValue("")) }
+    // Финальный GPX результат
     var gpxResult by remember { mutableStateOf("") }
+
+    // При первом запуске экрана читаем сохранённый ключ и заполняем поле
+    LaunchedEffect(Unit) {
+        val savedKey = sharedPrefs.getString("API_KEY", "") ?: ""
+        apiKeyText = TextFieldValue(savedKey)
+    }
 
     // Функция для получения текущих координат через FusedLocationProviderClient
     fun fetchCurrentLocation() {
@@ -146,9 +161,17 @@ fun GpxGeneratorScreen() {
                 Text("Текущие координаты")
             }
 
+            // Поле для API Key с сохранением в SharedPreferences
             OutlinedTextField(
                 value = apiKeyText,
-                onValueChange = { newValue -> apiKeyText = newValue },
+                onValueChange = { newValue ->
+                    apiKeyText = newValue
+                    // Каждый раз при изменении – сохраняем в SharedPreferences
+                    with(sharedPrefs.edit()) {
+                        putString("API_KEY", newValue.text)
+                        apply()  // лучше apply(), чтобы не блокировать UI-поток
+                    }
+                },
                 label = { Text("Places API Key") },
                 modifier = Modifier.fillMaxWidth()
             )

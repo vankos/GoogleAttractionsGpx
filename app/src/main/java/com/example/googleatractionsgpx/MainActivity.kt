@@ -37,16 +37,16 @@ import kotlin.math.cos
 
 class MainActivity : ComponentActivity() {
 
-    // Запрашиваем разрешения на использование геопозиции
+    // Request location permission
     private val requestPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted: Boolean ->
-            // Можно добавить логику при получении/неполучении разрешения
+            // You can add logic here for granted/not granted permission
         }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Проверяем, есть ли разрешение, если нет – запрашиваем
+        // Check if permission is granted; if not, request it
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
             != PackageManager.PERMISSION_GRANTED
         ) {
@@ -64,25 +64,25 @@ class MainActivity : ComponentActivity() {
 fun GpxGeneratorScreen() {
     val context = LocalContext.current
 
-    // В SharedPreferences мы сохраним только API-ключ
+    // We only store the API Key in SharedPreferences
     val sharedPrefs = remember {
         context.getSharedPreferences("MY_APP_PREFS", Context.MODE_PRIVATE)
     }
 
-    // Координаты
+    // Coordinates
     var coordinatesText by remember { mutableStateOf(TextFieldValue("")) }
     // API Key
     var apiKeyText by remember { mutableStateOf(TextFieldValue("")) }
-    // Финальный GPX результат
+    // Final GPX result
     var gpxResult by remember { mutableStateOf("") }
 
-    // При первом запуске экрана читаем сохранённый ключ и заполняем поле
+    // On first screen launch, read the saved key and fill the field
     LaunchedEffect(Unit) {
         val savedKey = sharedPrefs.getString("API_KEY", "") ?: ""
         apiKeyText = TextFieldValue(savedKey)
     }
 
-    // Функция для получения текущих координат через FusedLocationProviderClient
+    // Function to get the current coordinates using FusedLocationProviderClient
     fun fetchCurrentLocation() {
         if (ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION)
             == PackageManager.PERMISSION_GRANTED
@@ -97,45 +97,49 @@ fun GpxGeneratorScreen() {
         }
     }
 
-    // Функция для запроса в Google Places API и генерации GPX
+    // Function to request Google Places API and generate GPX
     fun generateGpx() {
         val scope = CoroutineScope(Dispatchers.IO)
         scope.launch {
             withContext(Dispatchers.Main) {
-                gpxResult = "Загрузка"
+                gpxResult = "Loading"
             }
             val coords = coordinatesText.text.trim()
             val apiKey = apiKeyText.text.trim()
             if (coords.isNotEmpty() && apiKey.isNotEmpty()) {
                 try {
-                    // Запрашиваем список мест через Places API
-                    // Разбиваем на сетку ~500м и собираем все места
+                    // Request the list of places via Places API
+                    // Split into ~500m grid and gather all places
                     val places = fetchPlacesByGrid(coords, apiKey)
 
-                    // Конвертим результат в GPX
+                    // Convert results to GPX
                     val gpxString = convertPlacesToGpx(places)
                     val fileName = getFileName()
-                    val file = File(context.getExternalFilesDir(null),fileName)
+                    val file = File(context.getExternalFilesDir(null), fileName)
                     file.writeText(gpxString, Charset.defaultCharset())
-                    val uri: Uri = FileProvider.getUriForFile(context, "com.example.googleatractionsgpx.fileProvider", file)
+                    val uri: Uri = FileProvider.getUriForFile(
+                        context,
+                        "com.example.googleatractionsgpx.fileProvider",
+                        file
+                    )
 
                     val intent = Intent(Intent.ACTION_VIEW).apply {
                         setDataAndType(uri, "application/octet-stream")
                         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                     }
                     withContext(Dispatchers.Main) {
-                        gpxResult = "Готово"
+                        gpxResult = "Done"
                     }
 
                     context.startActivity(Intent.createChooser(intent, "Open test.gpx"))
                 } catch (e: Exception) {
                     withContext(Dispatchers.Main) {
-                        gpxResult = "Ошибка при загрузке: ${e.message}"
+                        gpxResult = "Error loading: ${e.message}"
                     }
                 }
             } else {
                 withContext(Dispatchers.Main) {
-                    gpxResult = "Заполните координаты и ключ API."
+                    gpxResult = "Please provide coordinates and an API key."
                 }
             }
         }
@@ -187,10 +191,10 @@ fun GpxGeneratorScreen() {
                 onClick = { generateGpx() },
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Сгенерировать GPX")
+                Text("Generate GPX")
             }
 
-            // Отображаем результат (GPX) в текстовом виде
+            // Display the result (GPX) as text
             Text(
                 text = gpxResult,
                 modifier = Modifier.fillMaxWidth()
@@ -200,34 +204,35 @@ fun GpxGeneratorScreen() {
 }
 
 // ==================================================================
-// Функции для «сетки», запросов к Places и генерации GPX
+// Functions for the "grid", queries to Places, and GPX generation
 // ==================================================================
 
 /**
- * Разбивает площадь ±1000 м от центра на «квадратики» 500 м
- * и для каждой точки делает запрос по радиусу ~300–500 м.
- * Собирает результаты в Set (убирая дубли), потом выдаёт как List.
+ * Splits the area ±4000m from the center into 500m squares,
+ * and for each point makes a request with ~300–500m radius.
+ * Collects results into a Set (removing duplicates), then returns them as a List.
  */
 suspend fun fetchPlacesByGrid(coords: String, apiKey: String): List<PlaceInfo> {
     val (centerLat, centerLng) = coords.split(",").map { it.toDouble() }
 
-    // Устанавливаем «параметры сетки»
-    val halfSideMeters = 4000.0  // ±4000 м от центра (итого 8км)
-    val stepMeters = 500.0       // размер «клетки» = 500 м
-    val requestRadius = 500      // радиус для Google Places в каждой точке
+    // Grid parameters
+    val halfSideMeters = 4000.0  // ±4000m from the center (8km total)
+    val stepMeters = 500.0       // cell size = 500m
+    val requestRadius = 500      // Google Places radius for each point
 
-    val latDegreePerMeter = 1.0 / 111320.0  // приблизительно ~ 1 градус широты = 111,320 м
+    // 1 degree of latitude is ~111,320m
+    val latDegreePerMeter = 1.0 / 111320.0
+    // For longitude, multiply by cos(latitude)
     val cosLat = cos(centerLat * PI / 180.0)
     val lonDegreePerMeter = 1.0 / (111320.0 * cosLat)
 
     val results = mutableSetOf<PlaceInfo>()
 
-    // Определим, сколько «шагов» в каждую сторону
-    // Например, 2км / 500м = 4 шага. Но т.к. начинается от -1000 до +1000 включительно, это 5 точек.
-    val stepsCount = ((2 * halfSideMeters) / stepMeters).toInt() // (2000 / 500) = 4, но ниже мы будем идти 0..4
+    // Calculate how many steps in each direction
+    val stepsCount = ((2 * halfSideMeters) / stepMeters).toInt()
+    // e.g. for 2000 / 500 = 4, but we'll loop 0..4
 
     for (i in 0..stepsCount) {
-        // Сколько метров сместиться от центра по широте
         val offsetMetersLat = -halfSideMeters + i * stepMeters
         val offsetLatDegrees = offsetMetersLat * latDegreePerMeter
 
@@ -235,11 +240,11 @@ suspend fun fetchPlacesByGrid(coords: String, apiKey: String): List<PlaceInfo> {
             val offsetMetersLon = -halfSideMeters + j * stepMeters
             val offsetLonDegrees = offsetMetersLon * lonDegreePerMeter
 
-            // Рассчитываем координаты «ячейки»
+            // Calculate the "cell" coordinates
             val cellLat = centerLat + offsetLatDegrees
             val cellLon = centerLng + offsetLonDegrees
 
-            // Делаем запрос для этой ячейки
+            // Make a request for this cell
             val placesInCell = fetchNearbyPlacesSinglePage(
                 latitude = cellLat,
                 longitude = cellLon,
@@ -249,7 +254,7 @@ suspend fun fetchPlacesByGrid(coords: String, apiKey: String): List<PlaceInfo> {
             )
             results.addAll(placesInCell)
 
-            // Чтобы не «заспамить» Google запросами, небольшая задержка
+            // Small delay so as not to spam Google with too many requests at once
             delay(150)
         }
     }
@@ -258,8 +263,8 @@ suspend fun fetchPlacesByGrid(coords: String, apiKey: String): List<PlaceInfo> {
 }
 
 /**
- * Делаем одиночный запрос Places Nearby Search на одну «ячейку»
- * (без пейджинга, возвращает до 20 результатов).
+ * Makes a single Places Nearby Search request for one "cell"
+ * (no paging, returns up to 20 results).
  */
 fun fetchNearbyPlacesSinglePage(
     latitude: Double,
@@ -272,7 +277,7 @@ fun fetchNearbyPlacesSinglePage(
     val locationParam = "$latitude,$longitude"
     val encodedLocation = URLEncoder.encode(locationParam, "UTF-8")
 
-    // Сформируем URL. Если надо, можно добавить &keyword=..., &language=..., etc.
+    // Build the URL. If needed, add &keyword=..., &language=..., etc.
     val urlString = "$baseUrl?" +
             "location=$encodedLocation&" +
             "radius=$radius&" +
@@ -296,8 +301,8 @@ fun fetchNearbyPlacesSinglePage(
         val userRatingsTotal = item.optInt("user_ratings_total", 0)
         val placeId = item.optString("place_id", "")
 
-        // Для ссылки на гугл-карты можно использовать https://maps.google.com/?q=PLACE_ID
-        // или более осмысленно – https://www.google.com/maps/place/?q=place_id:PLACE_ID
+        // For Google Maps link you can use https://maps.google.com/?q=PLACE_ID
+        // or https://www.google.com/maps/place/?q=place_id:PLACE_ID
         val rawLink = "https://www.google.com/maps/search/?api=1&query=Google&query_place_id=$placeId"
 
         placeList.add(
@@ -316,10 +321,10 @@ fun fetchNearbyPlacesSinglePage(
 }
 
 /**
- * Преобразует список мест в строку формата GPX
+ * Converts a list of places into a GPX format string
  */
 fun convertPlacesToGpx(places: List<PlaceInfo>): String {
-    // Заголовок для стандартного GPX 1.1
+    // Header for the standard GPX 1.1
     val sb = StringBuilder()
     sb.append("""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>""").append("\n")
     sb.append("""<gpx version="1.1" creator="ComposeGpxApp" xmlns="http://www.topografix.com/GPX/1/1">""")
@@ -328,10 +333,10 @@ fun convertPlacesToGpx(places: List<PlaceInfo>): String {
     places.forEach { place ->
         sb.append("""  <wpt lat="${place.latitude}" lon="${place.longitude}">""").append("\n")
         val escapedName = place.name.replace("&", "&amp;")
-        sb.append("""    <name>${escapedName}</name>""").append("\n")
-        // В description пропихиваем рейтинг, количество отзывов и ссылку
+        sb.append("""    <name>$escapedName</name>""").append("\n")
+        // Insert rating, total number of reviews, and link into the description
         val escapedLink = place.mapsLink.replace("&", "&amp;")
-        sb.append("""    <desc>Рейтинг: ${place.rating}, Отзывов: ${place.userRatingsTotal}, Ссылка: ${escapedLink}</desc>""")
+        sb.append("""    <desc>Rating: ${place.rating}, Reviews: ${place.userRatingsTotal}, Link: $escapedLink</desc>""")
             .append("\n")
         sb.append("""  </wpt>""").append("\n")
     }
@@ -341,7 +346,7 @@ fun convertPlacesToGpx(places: List<PlaceInfo>): String {
 }
 
 /**
- * Модель для хранения результата от Google Places
+ * Data model to store the result from Google Places
  */
 data class PlaceInfo(
     val name: String,

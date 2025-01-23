@@ -212,9 +212,9 @@ suspend fun fetchPlacesByGrid(coords: String, apiKey: String): List<PlaceInfo> {
     val (centerLat, centerLng) = coords.split(",").map { it.toDouble() }
 
     // Устанавливаем «параметры сетки»
-    val halfSideMeters = 3000.0  // ±1000 м от центра (итого 2км)
+    val halfSideMeters = 4000.0  // ±4000 м от центра (итого 8км)
     val stepMeters = 500.0       // размер «клетки» = 500 м
-    val requestRadius = 300      // радиус для Google Places в каждой точке
+    val requestRadius = 500      // радиус для Google Places в каждой точке
 
     val latDegreePerMeter = 1.0 / 111320.0  // приблизительно ~ 1 градус широты = 111,320 м
     val cosLat = cos(centerLat * PI / 180.0)
@@ -250,7 +250,7 @@ suspend fun fetchPlacesByGrid(coords: String, apiKey: String): List<PlaceInfo> {
             results.addAll(placesInCell)
 
             // Чтобы не «заспамить» Google запросами, небольшая задержка
-            delay(300)
+            delay(150)
         }
     }
 

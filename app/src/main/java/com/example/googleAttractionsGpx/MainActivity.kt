@@ -25,6 +25,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.io.File
@@ -113,7 +114,7 @@ fun GpxGeneratorScreen() {
 
                     // Convert results to GPX
                     val gpxString = convertPlacesToGpx(places)
-                    val fileName = getFileName()
+                    val fileName = getFileName(coords)
                     val file = File(context.getExternalFilesDir(null), fileName)
                     file.writeText(gpxString, Charset.defaultCharset())
                     val uri: Uri = FileProvider.getUriForFile(
@@ -356,8 +357,40 @@ data class PlaceInfo(
     val mapsLink: String
 )
 
-private fun getFileName(): String {
-    val fileNamePrefix = "Google attractions "
+private fun getFileName(coords: String): String {
+    var fileNamePrefix = "Google attractions "
+    val locationName: String? = runBlocking {
+        getLocationNameFromCoordinates(coords)
+    }
+
+    if (locationName != null) {
+        fileNamePrefix += "${locationName}_"
+    }
     val fileName = "$fileNamePrefix${java.time.LocalDateTime.now()}.gpx"
     return fileName
 }
+
+suspend fun getLocationNameFromCoordinates(coords: String): String? {
+    val (lat, lng) = coords.split(",").map { it.toDouble() }
+    val queryUrl = "https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json"
+    return try {
+        val jsonResponse = withContext(Dispatchers.IO) {
+            URL(queryUrl).readText()
+        }
+
+        val jsonObject = JSONObject(jsonResponse)
+        getLocationNameFromLocationInfo(jsonObject)
+    } catch (ex: Exception) {
+        null
+    }
+}
+
+private fun getLocationNameFromLocationInfo(jsonObject: JSONObject?): String? {
+    val address = jsonObject?.optJSONObject("address")
+    return address?.optString("suburb")
+        ?: address?.optString("city")
+        ?: address?.optString("state")
+        ?: address?.optString("country")
+        ?: address?.optString("display_name")
+}
+

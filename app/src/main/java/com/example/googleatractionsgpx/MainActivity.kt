@@ -299,7 +299,6 @@ fun fetchNearbyPlacesSinglePage(
         // Для ссылки на гугл-карты можно использовать https://maps.google.com/?q=PLACE_ID
         // или более осмысленно – https://www.google.com/maps/place/?q=place_id:PLACE_ID
         val rawLink = "https://www.google.com/maps/search/?api=1&query=Google&query_place_id=$placeId"
-        val escapedLink = rawLink.replace("&", "&amp;")
 
         placeList.add(
             PlaceInfo(
@@ -308,7 +307,7 @@ fun fetchNearbyPlacesSinglePage(
                 longitude = lngResult,
                 rating = rating,
                 userRatingsTotal = userRatingsTotal,
-                mapsLink = escapedLink
+                mapsLink = rawLink
             )
         )
     }
@@ -328,9 +327,11 @@ fun convertPlacesToGpx(places: List<PlaceInfo>): String {
 
     places.forEach { place ->
         sb.append("""  <wpt lat="${place.latitude}" lon="${place.longitude}">""").append("\n")
-        sb.append("""    <name>${place.name}</name>""").append("\n")
+        val escapedName = place.name.replace("&", "&amp;")
+        sb.append("""    <name>${escapedName}</name>""").append("\n")
         // В description пропихиваем рейтинг, количество отзывов и ссылку
-        sb.append("""    <desc>Рейтинг: ${place.rating}, Отзывов: ${place.userRatingsTotal}, Ссылка: ${place.mapsLink}</desc>""")
+        val escapedLink = place.mapsLink.replace("&", "&amp;")
+        sb.append("""    <desc>Рейтинг: ${place.rating}, Отзывов: ${place.userRatingsTotal}, Ссылка: ${escapedLink}</desc>""")
             .append("\n")
         sb.append("""  </wpt>""").append("\n")
     }

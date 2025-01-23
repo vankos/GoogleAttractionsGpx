@@ -5,11 +5,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.googleatractionsgpx"
+    namespace = "com.example.googleAttractionsGpx"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.example.googleatractionsgpx"
+        applicationId = "com.example.googleAttractionsGpx"
         minSdk = 28
         targetSdk = 35
         versionCode = 1

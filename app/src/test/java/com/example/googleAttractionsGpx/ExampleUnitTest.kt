@@ -1,4 +1,4 @@
-package com.example.googleatractionsgpx
+package com.example.googleAttractionsGpx
 
 import org.junit.Test
 

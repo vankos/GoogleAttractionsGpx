@@ -1,4 +1,4 @@
-package com.example.googleatractionsgpx
+package com.example.googleAttractionsGpx
 
 import android.Manifest
 import android.content.Context
@@ -25,7 +25,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.io.File
@@ -119,7 +118,7 @@ fun GpxGeneratorScreen() {
                     file.writeText(gpxString, Charset.defaultCharset())
                     val uri: Uri = FileProvider.getUriForFile(
                         context,
-                        "com.example.googleatractionsgpx.fileProvider",
+                        "com.example.googleAttractionsGpx.fileProvider",
                         file
                     )
 
@@ -160,7 +159,7 @@ fun GpxGeneratorScreen() {
             OutlinedTextField(
                 value = coordinatesText,
                 onValueChange = { newValue -> coordinatesText = newValue },
-                label = { Text("Координаты (lat,lng)") },
+                label = { Text("Coordinates (lat,lng)") },
                 modifier = Modifier.fillMaxWidth()
             )
 
@@ -168,18 +167,18 @@ fun GpxGeneratorScreen() {
                 onClick = { fetchCurrentLocation() },
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Текущие координаты")
+                Text("Current coordinates")
             }
 
-            // Поле для API Key с сохранением в SharedPreferences
+            // API Key field with saving to SharedPreferences
             OutlinedTextField(
                 value = apiKeyText,
                 onValueChange = { newValue ->
                     apiKeyText = newValue
-                    // Каждый раз при изменении – сохраняем в SharedPreferences
+                    // Each time it changes, we save it to SharedPreferences
                     with(sharedPrefs.edit()) {
                         putString("API_KEY", newValue.text)
-                        apply()  // лучше apply(), чтобы не блокировать UI-поток
+                        apply()  // better use apply() to avoid blocking the UI thread
                     }
                 },
                 label = { Text("Places API Key") },

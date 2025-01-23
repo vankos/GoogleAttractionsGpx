@@ -1,4 +1,4 @@
-package com.example.googleatractionsgpx.ui.theme
+package com.example.googleAttractionsGpx.ui.theme
 
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle

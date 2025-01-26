@@ -217,8 +217,8 @@ suspend fun fetchPlacesByGrid(coords: String, apiKey: String): List<PlaceInfo> {
 
     // Grid parameters
     val halfSideMeters = 4000.0  // ±4000m from the center (8km total)
-    val stepMeters = 500.0       // cell size = 500m
-    val requestRadius = 500      // Google Places radius for each point
+    val stepMeters = 1000.0       // cell size = 500m
+    val requestRadius = 600      // Google Places radius for each point
 
     // 1 degree of latitude is ~111,320m
     val latDegreePerMeter = 1.0 / 111320.0
@@ -255,7 +255,7 @@ suspend fun fetchPlacesByGrid(coords: String, apiKey: String): List<PlaceInfo> {
             results.addAll(placesInCell)
 
             // Small delay so as not to spam Google with too many requests at once
-            delay(150)
+            delay(50)
         }
     }
 

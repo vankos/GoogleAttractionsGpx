@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.intl.Locale
 import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
 import androidx.core.content.FileProvider
@@ -563,7 +564,7 @@ private fun getFileName(coords: String, prefix: String): String {
 
     suspend fun getLocationNameFromCoordinates(coords: String): String? {
         val (lat, lng) = coords.split(",").map { it.toDouble() }
-        val queryUrl = "https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json"
+        val queryUrl = "https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&accept-language=${Locale.current}"
         return try {
             val jsonResponse = withContext(Dispatchers.IO) {
                 URL(queryUrl).readText()

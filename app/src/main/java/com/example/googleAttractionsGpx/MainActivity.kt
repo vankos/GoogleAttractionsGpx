@@ -21,12 +21,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
 import androidx.core.content.FileProvider
 import com.google.android.gms.location.LocationServices
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.*
 import org.json.JSONObject
 import java.io.File
 import java.net.URLEncoder
@@ -97,24 +92,23 @@ fun GpxGeneratorScreen() {
         }
     }
 
-    // Function to request Google Places API and generate GPX
+    // 1) Function to request Google Places API and generate GPX
     fun generateGpx() {
         val scope = CoroutineScope(Dispatchers.IO)
         scope.launch {
             withContext(Dispatchers.Main) {
-                gpxResult = "Loading"
+                gpxResult = "Loading Google Places..."
             }
             val coords = coordinatesText.text.trim()
             val apiKey = apiKeyText.text.trim()
             if (coords.isNotEmpty() && apiKey.isNotEmpty()) {
                 try {
                     // Request the list of places via Places API
-                    // Split into ~500m grid and gather all places
                     val places = fetchPlacesByGrid(coords, apiKey)
 
                     // Convert results to GPX
                     val gpxString = convertPlacesToGpx(places)
-                    val fileName = getFileName(coords)
+                    val fileName = getFileName(coords, "Google")
                     val file = File(context.getExternalFilesDir(null), fileName)
                     file.writeText(gpxString, Charset.defaultCharset())
                     val uri: Uri = FileProvider.getUriForFile(
@@ -128,18 +122,68 @@ fun GpxGeneratorScreen() {
                         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                     }
                     withContext(Dispatchers.Main) {
-                        gpxResult = "Done"
+                        gpxResult = "Google Places GPX created."
                     }
 
-                    context.startActivity(Intent.createChooser(intent, "Open test.gpx"))
+                    context.startActivity(Intent.createChooser(intent, "Open GPX"))
                 } catch (e: Exception) {
                     withContext(Dispatchers.Main) {
-                        gpxResult = "Error loading: ${e.message}"
+                        gpxResult = "Error loading Google Places: ${e.message}"
                     }
                 }
             } else {
                 withContext(Dispatchers.Main) {
                     gpxResult = "Please provide coordinates and an API key."
+                }
+            }
+        }
+    }
+
+    // 2) Function to request Overpass Turbo API and generate GPX
+    fun generateOsmGpx() {
+        val scope = CoroutineScope(Dispatchers.IO)
+        scope.launch {
+            withContext(Dispatchers.Main) {
+                gpxResult = "Loading OSM data..."
+            }
+            val coords = coordinatesText.text.trim()
+            if (coords.isNotEmpty()) {
+                try {
+                    // Parse lat/lon
+                    val (lat, lng) = coords.split(",").map { it.toDouble() }
+                    // For example, we can use the same 4000m radius
+                    val radius = 5000
+
+                    val osmPlaces = fetchOverpassAttractions(lat, lng, radius)
+
+                    // Convert results to GPX
+                    val gpxString = convertOsmToGpx(osmPlaces)
+                    val fileName = getFileName(coords, "OSM")
+                    val file = File(context.getExternalFilesDir(null), fileName)
+                    file.writeText(gpxString, Charset.defaultCharset())
+                    val uri: Uri = FileProvider.getUriForFile(
+                        context,
+                        "com.example.googleAttractionsGpx.fileProvider",
+                        file
+                    )
+
+                    val intent = Intent(Intent.ACTION_VIEW).apply {
+                        setDataAndType(uri, "application/octet-stream")
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    }
+                    withContext(Dispatchers.Main) {
+                        gpxResult = "OSM GPX created."
+                    }
+
+                    context.startActivity(Intent.createChooser(intent, "Open OSM GPX"))
+                } catch (e: Exception) {
+                    withContext(Dispatchers.Main) {
+                        gpxResult = "Error loading OSM: ${e.message}"
+                    }
+                }
+            } else {
+                withContext(Dispatchers.Main) {
+                    gpxResult = "Please provide coordinates."
                 }
             }
         }
@@ -187,14 +231,23 @@ fun GpxGeneratorScreen() {
                 visualTransformation = PasswordVisualTransformation(),
             )
 
+            // Button for Google Places GPX
             Button(
                 onClick = { generateGpx() },
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Generate GPX")
+                Text("Generate GPX (Google)")
             }
 
-            // Display the result (GPX) as text
+            // Button for OSM Overpass GPX
+            Button(
+                onClick = { generateOsmGpx() },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Generate GPX (OSM)")
+            }
+
+            // Display the result (GPX) as text (or status info)
             Text(
                 text = gpxResult,
                 modifier = Modifier.fillMaxWidth()
@@ -204,21 +257,15 @@ fun GpxGeneratorScreen() {
 }
 
 // ==================================================================
-// Functions for the "grid", queries to Places, and GPX generation
+// 1) Google Places logic (grid approach) & data class
 // ==================================================================
-
-/**
- * Splits the area ±4000m from the center into 500m squares,
- * and for each point makes a request with ~300–500m radius.
- * Collects results into a Set (removing duplicates), then returns them as a List.
- */
 suspend fun fetchPlacesByGrid(coords: String, apiKey: String): List<PlaceInfo> {
     val (centerLat, centerLng) = coords.split(",").map { it.toDouble() }
 
     // Grid parameters
-    val halfSideMeters = 4000.0  // ±4000m from the center (8km total)
-    val stepMeters = 1000.0       // cell size = 500m
-    val requestRadius = 600      // Google Places radius for each point
+    val halfSideMeters = 4000.0   // ±4000m from the center (8km total)
+    val stepMeters = 1000.0       // step for each cell
+    val requestRadius = 600       // Google Places radius for each point
 
     // 1 degree of latitude is ~111,320m
     val latDegreePerMeter = 1.0 / 111320.0
@@ -228,9 +275,7 @@ suspend fun fetchPlacesByGrid(coords: String, apiKey: String): List<PlaceInfo> {
 
     val results = mutableSetOf<PlaceInfo>()
 
-    // Calculate how many steps in each direction
     val stepsCount = ((2 * halfSideMeters) / stepMeters).toInt()
-    // e.g. for 2000 / 500 = 4, but we'll loop 0..4
 
     for (i in 0..stepsCount) {
         val offsetMetersLat = -halfSideMeters + i * stepMeters
@@ -240,11 +285,9 @@ suspend fun fetchPlacesByGrid(coords: String, apiKey: String): List<PlaceInfo> {
             val offsetMetersLon = -halfSideMeters + j * stepMeters
             val offsetLonDegrees = offsetMetersLon * lonDegreePerMeter
 
-            // Calculate the "cell" coordinates
             val cellLat = centerLat + offsetLatDegrees
             val cellLon = centerLng + offsetLonDegrees
 
-            // Make a request for this cell
             val placesInCell = fetchNearbyPlacesSinglePage(
                 latitude = cellLat,
                 longitude = cellLon,
@@ -254,7 +297,6 @@ suspend fun fetchPlacesByGrid(coords: String, apiKey: String): List<PlaceInfo> {
             )
             results.addAll(placesInCell)
 
-            // Small delay so as not to spam Google with too many requests at once
             delay(50)
         }
     }
@@ -262,10 +304,6 @@ suspend fun fetchPlacesByGrid(coords: String, apiKey: String): List<PlaceInfo> {
     return results.toList()
 }
 
-/**
- * Makes a single Places Nearby Search request for one "cell"
- * (no paging, returns up to 20 results).
- */
 fun fetchNearbyPlacesSinglePage(
     latitude: Double,
     longitude: Double,
@@ -277,7 +315,6 @@ fun fetchNearbyPlacesSinglePage(
     val locationParam = "$latitude,$longitude"
     val encodedLocation = URLEncoder.encode(locationParam, "UTF-8")
 
-    // Build the URL. If needed, add &keyword=..., &language=..., etc.
     val urlString = "$baseUrl?" +
             "location=$encodedLocation&" +
             "radius=$radius&" +
@@ -301,8 +338,6 @@ fun fetchNearbyPlacesSinglePage(
         val userRatingsTotal = item.optInt("user_ratings_total", 0)
         val placeId = item.optString("place_id", "")
 
-        // For Google Maps link you can use https://maps.google.com/?q=PLACE_ID
-        // or https://www.google.com/maps/place/?q=place_id:PLACE_ID
         val rawLink = "https://www.google.com/maps/search/?api=1&query=Google&query_place_id=$placeId"
 
         placeList.add(
@@ -320,11 +355,7 @@ fun fetchNearbyPlacesSinglePage(
     return placeList
 }
 
-/**
- * Converts a list of places into a GPX format string
- */
 fun convertPlacesToGpx(places: List<PlaceInfo>): String {
-    // Header for the standard GPX 1.1
     val sb = StringBuilder()
     sb.append("""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>""").append("\n")
     sb.append("""<gpx version="1.1" creator="ComposeGpxApp" xmlns="http://www.topografix.com/GPX/1/1">""")
@@ -345,9 +376,6 @@ fun convertPlacesToGpx(places: List<PlaceInfo>): String {
     return sb.toString()
 }
 
-/**
- * Data model to store the result from Google Places
- */
 data class PlaceInfo(
     val name: String,
     val latitude: Double,
@@ -357,40 +385,203 @@ data class PlaceInfo(
     val mapsLink: String
 )
 
-private fun getFileName(coords: String): String {
-    var fileNamePrefix = "Google attractions "
+/**
+ * Simplified version: do a POST request to Overpass using standard Java.
+ * We'll parse the JSON and gather results.
+ */
+@Suppress("BlockingMethodInNonBlockingContext")
+suspend fun fetchOverpassAttractionsSimple(lat: Double, lon: Double, radius: Int): List<OsmPlace> {
+    // Build the Overpass QL query
+    val query = """
+        [out:json];
+        (node["tourism"="attraction"](around:$radius,$lat,$lon);
+        way["tourism"="attraction"](around:$radius,$lat,$lon);
+        relation["tourism"="attraction"](around:$radius,$lat,$lon);
+        nwr["leisure"="park"](around:$radius,$lat,$lon);
+        nwr["amenity"="feeding place"](around:$radius,$lat,$lon);
+        nwr["landuse"="village_green"](around:$radius,$lat,$lon);
+        nwr["man_made"="lighthouse"](around:$radius,$lat,$lon);
+        nwr[natural=anthill](around:$radius,$lat,$lon);
+        nwr[natural=sinkhole](around:$radius,$lat,$lon);
+        nwr[natural=arch](around:$radius,$lat,$lon);
+        nwr[natural=bay](around:$radius,$lat,$lon);
+        nwr[natural=cape](around:$radius,$lat,$lon);
+        nwr[natural=couloir](around:$radius,$lat,$lon);
+        nwr[natural=crater](around:$radius,$lat,$lon);
+        nwr[natural=dune](around:$radius,$lat,$lon);
+        nwr[natural=fumarole](around:$radius,$lat,$lon);
+        nwr[natural=geyser](around:$radius,$lat,$lon);
+        nwr[natural=glacier](around:$radius,$lat,$lon);
+        nwr[natural=hot_spring](around:$radius,$lat,$lon);
+        nwr[leisure=nature_reserve](around:$radius,$lat,$lon);
+        nwr[boundary=protected_area](around:$radius,$lat,$lon);
+        nwr[natural=reef](around:$radius,$lat,$lon);
+        nwr[natural=stone](around:$radius,$lat,$lon);
+        nwr[natural=termite_mound](around:$radius,$lat,$lon);
+        nwr[natural=valley](around:$radius,$lat,$lon);
+        nwr[natural=volcano](around:$radius,$lat,$lon);
+        nwr[waterway=waterfall](around:$radius,$lat,$lon);
+        nwr[tourism=attraction](around:$radius,$lat,$lon);
+        nwr[route=foot](around:$radius,$lat,$lon);
+        nwr[route=hiking](around:$radius,$lat,$lon);
+        nwr[tourism=aquarium](around:$radius,$lat,$lon);
+        nwr[attraction=animal](around:$radius,$lat,$lon);
+        nwr[historic=archaeological_site](around:$radius,$lat,$lon);
+        nwr[historic=battlefield](around:$radius,$lat,$lon);
+        nwr[historic=boundary_stone](around:$radius,$lat,$lon);
+        nwr[historic=castle](around:$radius,$lat,$lon);
+        nwr[historic=city_gate](around:$radius,$lat,$lon);
+        nwr[barrier=city_wall](around:$radius,$lat,$lon);
+        nwr["abandoned:amenity"="prison_camp"](around:$radius,$lat,$lon);
+        nwr[man_made=geoglyph](around:$radius,$lat,$lon);
+        nwr[tourism=hanami](around:$radius,$lat,$lon);
+        nwr["historic"]
+           ["historic"!="memorial"]
+           ["historic"!="wayside_cross"](around:$radius,$lat,$lon);
+        nwr[attraction=maze](around:$radius,$lat,$lon);
+        nwr[geological=outcrop](around:$radius,$lat,$lon);
+        nwr[geological=palaeontological_site](around:$radius,$lat,$lon);
+        nwr[leisure=bird_hide](around:$radius,$lat,$lon);
+        nwr[highway=trailhead](around:$radius,$lat,$lon);
+        nwr[tourism=viewpoint](around:$radius,$lat,$lon);
+        nwr[tourism=zoo](around:$radius,$lat,$lon);
+        nwr["aerialway"](around:$radius,$lat,$lon);
+        nwr[railway=funicular](around:$radius,$lat,$lon);
+        nwr[tourism=artwork]
+           ["artwork_type"!="statue"]
+           ["artwork_type"!="bust"](around:$radius,$lat,$lon);
+        );
+        out center;
+    """.trimIndent()
+
+    val url = URL("https://overpass-api.de/api/interpreter")
+    return withContext(Dispatchers.IO) {
+        // Do a POST request with the query in the request body
+        val connection = url.openConnection()
+        connection.doOutput = true
+        connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
+        connection.connect()
+
+        connection.getOutputStream().use { output ->
+            // Overpass interprets "data" param as the query
+            val postData = "data=" + URLEncoder.encode(query, "UTF-8")
+            output.write(postData.toByteArray(Charsets.UTF_8))
+        }
+
+        val response = connection.getInputStream().use { it.readBytes().toString(Charsets.UTF_8) }
+
+        parseOverpassJson(response)
+    }
+}
+
+suspend fun fetchOverpassAttractions(lat: Double, lon: Double, radius: Int): List<OsmPlace> {
+    return fetchOverpassAttractionsSimple(lat, lon, radius)
+}
+
+/** Parse the JSON response from Overpass to a list of OsmPlace */
+fun parseOverpassJson(jsonResponse: String): List<OsmPlace> {
+    val result = mutableListOf<OsmPlace>()
+    val obj = JSONObject(jsonResponse)
+    val elements = obj.optJSONArray("elements") ?: return emptyList()
+
+    for (i in 0 until elements.length()) {
+        val el = elements.getJSONObject(i)
+        val type = el.optString("type") // node, way, relation
+        val tags = el.optJSONObject("tags") ?: JSONObject()
+
+        // lat/lon might be "lat","lon" for nodes
+        // or "center.lat","center.lon" for ways/relations
+        val lat = if (el.has("lat")) el.optDouble("lat", 0.0)
+        else el.optJSONObject("center")?.optDouble("lat", 0.0) ?: 0.0
+        val lon = if (el.has("lon")) el.optDouble("lon", 0.0)
+        else el.optJSONObject("center")?.optDouble("lon", 0.0) ?: 0.0
+
+        val nameRu = tags.optString("name:ru", "")
+        val nameEn = tags.optString("name:en", "")
+        val nameDefault = tags.optString("name", "")
+
+        val finalName = when {
+            nameRu.isNotBlank() -> nameRu
+            nameEn.isNotBlank() -> nameEn
+            nameDefault.isNotBlank() -> nameDefault
+            else -> "No name"
+        }
+
+        val descBuilder = StringBuilder()
+        val keys = tags.keys()
+        while (keys.hasNext()) {
+            val k = keys.next()
+            val v = tags.optString(k)
+            descBuilder.append("$k=$v; ")
+        }
+
+        val googleLink = "https://www.google.com/maps?q=$lat,$lon"
+        descBuilder.append("Link: $googleLink")
+
+        result.add(OsmPlace(finalName, lat, lon, descBuilder.toString()))
+    }
+
+    return result
+}
+
+/**
+ * Convert Overpass (OSM) places to GPX format
+ */
+fun convertOsmToGpx(places: List<OsmPlace>): String {
+    val sb = StringBuilder()
+    sb.append("""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>""").append("\n")
+    sb.append("""<gpx version="1.1" creator="OSM GPX Generator" xmlns="http://www.topografix.com/GPX/1/1">""").append("\n")
+
+    for (place in places) {
+        sb.append("""  <wpt lat="${place.lat}" lon="${place.lon}">""").append("\n")
+        val escapedName = place.name.replace("&", "&amp;")
+        sb.append("""    <name>$escapedName</name>""").append("\n")
+        val escapedDesc = place.description.replace("&", "&amp;")
+        sb.append("""    <desc>$escapedDesc</desc>""").append("\n")
+        sb.append("""  </wpt>""").append("\n")
+    }
+
+    sb.append("</gpx>")
+    return sb.toString()
+}
+
+/** Simple OSM place model for Overpass results */
+data class OsmPlace(
+    val name: String,
+    val lat: Double,
+    val lon: Double,
+    val description: String
+)
+
+private fun getFileName(coords: String, prefix: String): String {
     val locationName: String? = runBlocking {
         getLocationNameFromCoordinates(coords)
     }
-
-    if (locationName != null) {
-        fileNamePrefix += "${locationName}_"
-    }
-    val fileName = "$fileNamePrefix${java.time.LocalDateTime.now()}.gpx"
-    return fileName
+    val now = java.time.LocalDateTime.now().toString().replace(":", "-")
+    return "${prefix}_${locationName}_$now.gpx"
 }
 
-suspend fun getLocationNameFromCoordinates(coords: String): String? {
-    val (lat, lng) = coords.split(",").map { it.toDouble() }
-    val queryUrl = "https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json"
-    return try {
-        val jsonResponse = withContext(Dispatchers.IO) {
-            URL(queryUrl).readText()
+    suspend fun getLocationNameFromCoordinates(coords: String): String? {
+        val (lat, lng) = coords.split(",").map { it.toDouble() }
+        val queryUrl = "https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json"
+        return try {
+            val jsonResponse = withContext(Dispatchers.IO) {
+                URL(queryUrl).readText()
+            }
+
+            val jsonObject = JSONObject(jsonResponse)
+            getLocationNameFromLocationInfo(jsonObject)
+        } catch (ex: Exception) {
+            null
         }
-
-        val jsonObject = JSONObject(jsonResponse)
-        getLocationNameFromLocationInfo(jsonObject)
-    } catch (ex: Exception) {
-        null
     }
-}
 
-private fun getLocationNameFromLocationInfo(jsonObject: JSONObject?): String? {
-    val address = jsonObject?.optJSONObject("address")
-    return address?.optString("suburb")
-        ?: address?.optString("city")
-        ?: address?.optString("state")
-        ?: address?.optString("country")
-        ?: address?.optString("display_name")
-}
+    private fun getLocationNameFromLocationInfo(jsonObject: JSONObject?): String? {
+        val address = jsonObject?.optJSONObject("address")
+        return address?.optString("suburb")
+            ?: address?.optString("city")
+            ?: address?.optString("state")
+            ?: address?.optString("country")
+            ?: address?.optString("display_name")
+    }
 

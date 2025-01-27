@@ -579,10 +579,21 @@ private fun getFileName(coords: String, prefix: String): String {
 
     private fun getLocationNameFromLocationInfo(jsonObject: JSONObject?): String? {
         val address = jsonObject?.optJSONObject("address")
-        return address?.optString("suburb")
-            ?: address?.optString("city")
-            ?: address?.optString("state")
-            ?: address?.optString("country")
-            ?: address?.optString("display_name")
+        val district = address?.optString("city_district", "")?: ""
+        val city = address?.optString("city", "")?: ""
+        val state = address?.optString("state", "")?: ""
+        val country = address?.optString("country", "")?: ""
+        val displayName = address?.optString("display_name", "")?: ""
+        val final = when {
+
+            district.isNotBlank() -> district
+            city.isNotBlank() -> city
+            state.isNotBlank() -> state
+            country.isNotBlank() -> country
+            displayName.isNotBlank() -> displayName
+            else -> ""
+        }
+
+        return final
     }
 

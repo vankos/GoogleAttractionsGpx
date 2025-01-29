@@ -23,6 +23,10 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.FileProvider
 import com.google.android.gms.location.LocationServices
 import kotlinx.coroutines.*
+import okhttp3.OkHttpClient
+import okhttp3.Response
+import okhttp3.Call
+import okhttp3.Request
 import org.json.JSONObject
 import java.io.File
 import java.net.URLEncoder
@@ -67,15 +71,20 @@ fun GpxGeneratorScreen() {
 
     // Coordinates
     var coordinatesText by remember { mutableStateOf(TextFieldValue("")) }
-    // API Key
-    var apiKeyText by remember { mutableStateOf(TextFieldValue("")) }
+    // Google API Key
+    var googleApiKeyText by remember { mutableStateOf(TextFieldValue("")) }
+    // TripAdvisor API Key
+    var tripAdvisorApiKeyText by remember { mutableStateOf(TextFieldValue("")) }
     // Final GPX result
     var gpxResult by remember { mutableStateOf("") }
 
     // On first screen launch, read the saved key and fill the field
     LaunchedEffect(Unit) {
-        val savedKey = sharedPrefs.getString("API_KEY", "") ?: ""
-        apiKeyText = TextFieldValue(savedKey)
+        val googleKey = sharedPrefs.getString("API_KEY", "") ?: ""
+        googleApiKeyText = TextFieldValue(googleKey)
+
+        val tripKey = sharedPrefs.getString("TRIP_ADVISOR_API_KEY", "") ?: ""
+        tripAdvisorApiKeyText = TextFieldValue(tripKey)
     }
 
     // Function to get the current coordinates using FusedLocationProviderClient
@@ -101,7 +110,7 @@ fun GpxGeneratorScreen() {
                 gpxResult = "Loading Google Places..."
             }
             val coords = coordinatesText.text.trim()
-            val apiKey = apiKeyText.text.trim()
+            val apiKey = googleApiKeyText.text.trim()
             if (coords.isNotEmpty() && apiKey.isNotEmpty()) {
                 try {
                     // Request the list of places via Places API
@@ -190,6 +199,48 @@ fun GpxGeneratorScreen() {
         }
     }
 
+    // --- 3) TripAdvisor ---
+    fun generateGpxTripAdvisor() {
+        val scope = CoroutineScope(Dispatchers.IO)
+        scope.launch {
+            withContext(Dispatchers.Main) { gpxResult = "Loading TripAdvisor data..." }
+
+            val coords = coordinatesText.text.trim()
+            val apiKey = tripAdvisorApiKeyText.text.trim()
+            if (coords.isNotEmpty() && apiKey.isNotEmpty()) {
+                try {
+                    val places = fetchTripAdvisorByGrid(coords, apiKey)
+                    val gpxString = convertPlacesToGpx(places)
+
+                    val fileName = getFileName(coords, "TripAdvisor")
+                    val file = File(context.getExternalFilesDir(null), fileName)
+                    file.writeText(gpxString, Charset.defaultCharset())
+
+                    val uri = FileProvider.getUriForFile(
+                        context, "com.example.googleAttractionsGpx.fileProvider", file
+                    )
+                    val intent = Intent(Intent.ACTION_VIEW).apply {
+                        setDataAndType(uri, "application/octet-stream")
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    }
+
+                    withContext(Dispatchers.Main) {
+                        gpxResult = "TripAdvisor GPX created."
+                        context.startActivity(Intent.createChooser(intent, "Open GPX"))
+                    }
+                } catch (e: Exception) {
+                    withContext(Dispatchers.Main) {
+                        gpxResult = "Error: ${e.message}"
+                    }
+                }
+            } else {
+                withContext(Dispatchers.Main) {
+                    gpxResult = "Please provide coordinates and TripAdvisor API key."
+                }
+            }
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(title = { Text("GPX Generator") })
@@ -218,9 +269,9 @@ fun GpxGeneratorScreen() {
 
             // API Key field with saving to SharedPreferences
             OutlinedTextField(
-                value = apiKeyText,
+                value = googleApiKeyText,
                 onValueChange = { newValue ->
-                    apiKeyText = newValue
+                    googleApiKeyText = newValue
                     // Each time it changes, we save it to SharedPreferences
                     with(sharedPrefs.edit()) {
                         putString("API_KEY", newValue.text)
@@ -228,6 +279,21 @@ fun GpxGeneratorScreen() {
                     }
                 },
                 label = { Text("Places API Key") },
+                modifier = Modifier.fillMaxWidth(),
+                visualTransformation = PasswordVisualTransformation(),
+            )
+
+            // TripAdvisor API Key
+            OutlinedTextField(
+                value = tripAdvisorApiKeyText,
+                onValueChange = {
+                    tripAdvisorApiKeyText = it
+                    with(sharedPrefs.edit()) {
+                        putString("TRIP_ADVISOR_API_KEY", it.text)
+                        apply()
+                    }
+                },
+                label = { Text("TripAdvisor API Key") },
                 modifier = Modifier.fillMaxWidth(),
                 visualTransformation = PasswordVisualTransformation(),
             )
@@ -246,6 +312,14 @@ fun GpxGeneratorScreen() {
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text("Generate GPX (OSM)")
+            }
+
+            // Button for TripAdvisor
+            Button(
+                onClick = { generateGpxTripAdvisor() },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Generate GPX (TripAdvisor)")
             }
 
             // Display the result (GPX) as text (or status info)
@@ -544,6 +618,129 @@ fun convertOsmToGpx(places: List<OsmPlace>): String {
 
     sb.append("</gpx>")
     return sb.toString()
+}
+
+suspend fun fetchTripAdvisorByGrid(coords: String, apiKey: String): List<PlaceInfo> {
+    val (centerLat, centerLng) = coords.split(",").map { it.toDouble() }
+
+    val halfSideMeters = 2000.0
+    val stepMeters = 1000.0
+    val requestRadius = 600
+
+    val latDegPerMeter = 1.0 / 111320.0
+    val cosLat = cos(centerLat * PI / 180.0)
+    val lonDegPerMeter = 1.0 / (111320.0 * cosLat)
+
+    val results = mutableSetOf<PlaceInfo>()
+    val stepsCount = ((2 * halfSideMeters) / stepMeters).toInt()
+
+    for (i in 0..stepsCount) {
+        val offsetLatM = -halfSideMeters + i * stepMeters
+        val offsetLatDeg = offsetLatM * latDegPerMeter
+
+        for (j in 0..stepsCount) {
+            val offsetLonM = -halfSideMeters + j * stepMeters
+            val offsetLonDeg = offsetLonM * lonDegPerMeter
+
+            val cellLat = centerLat + offsetLatDeg
+            val cellLon = centerLng + offsetLonDeg
+
+            val placesInCell = fetchTripAdvisorSinglePage(
+                cellLat, cellLon, requestRadius, apiKey
+            )
+            results.addAll(placesInCell)
+        }
+    }
+    return results.toList()
+}
+
+
+suspend fun fetchTripAdvisorSinglePage(
+    latitude: Double,
+    longitude: Double,
+    radius: Int,
+    apiKey: String
+): List<PlaceInfo> {
+    val nearbyUrl = "https://api.content.tripadvisor.com/api/v1/location/nearby_search" +
+            "?latLong=$latitude,$longitude" +
+            "&category=attractions" +
+            "&radius=$radius" +
+            "&radiusUnit=m" +
+            "&language=en" +
+            "&key=$apiKey"
+
+    val client = OkHttpClient()
+    val nearbyRequest = Request.Builder()
+        .url(nearbyUrl)
+        .get()
+        .addHeader("accept", "application/json")
+        .addHeader("referer", "https://github.co")
+        .build()
+
+    val nearbyResponse = client.newCall(nearbyRequest).execute()
+    val nearbyBody = nearbyResponse.body?.string().orEmpty()
+    nearbyResponse.close()
+
+    val nearbyJson = JSONObject(nearbyBody)
+    val dataArray = nearbyJson.optJSONArray("data") ?: return emptyList()
+    val locationIds = mutableListOf<String>()
+
+    for (i in 0 until dataArray.length()) {
+        val item = dataArray.getJSONObject(i)
+        val locId = item.optString("location_id", "")
+        if (locId.isNotEmpty()) {
+            locationIds.add(locId)
+        }
+    }
+
+    val results = mutableListOf<PlaceInfo>()
+    for (locId in locationIds) {
+        val detailsUrl = "https://api.content.tripadvisor.com/api/v1/location/$locId/details" +
+                "?language=en&key=$apiKey"
+
+        val detailsRequest = Request.Builder()
+            .url(detailsUrl)
+            .get()
+            .addHeader("accept", "application/json")
+            .addHeader("referer", "https://github.co")
+            .build()
+
+        val detailsResponse = client.newCall(detailsRequest).execute()
+        val detailsBody = detailsResponse.body?.string().orEmpty()
+        detailsResponse.close()
+        val detailsJson = JSONObject(detailsBody)
+        // Если нужно, проверяем наличие ошибок
+
+        val name = detailsJson.optString("name", "No name")
+        val latStr = detailsJson.optString("latitude", "0.0")
+        val lngStr = detailsJson.optString("longitude", "0.0")
+        val latVal = latStr.toDoubleOrNull() ?: 0.0
+        val lngVal = lngStr.toDoubleOrNull() ?: 0.0
+
+        val ratingStr = detailsJson.optString("rating", "0.0")
+        val ratingVal = ratingStr.toDoubleOrNull() ?: 0.0
+
+        val reviewsStr = detailsJson.optString("num_reviews", "0")
+        val reviewsVal = reviewsStr.toIntOrNull() ?: 0
+
+        // Для ссылки можно взять Google Maps:
+        val mapsLink = "https://www.google.com/maps?q=$latVal,$lngVal"
+
+        results.add(
+            PlaceInfo(
+                name = name,
+                latitude = latVal,
+                longitude = lngVal,
+                rating = ratingVal,
+                userRatingsTotal = reviewsVal,
+                mapsLink = mapsLink
+            )
+        )
+
+        delay(50)
+    }
+
+    return results
 }
 
 /** Simple OSM place model for Overpass results */

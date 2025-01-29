@@ -414,7 +414,10 @@ fun fetchNearbyPlacesSinglePage(
         val placeId = item.optString("place_id", "")
 
         val rawLink = "https://www.google.com/maps/search/?api=1&query=Google&query_place_id=$placeId"
-
+        if (rating < 4.0 || userRatingsTotal < 20){
+            continue
+        }
+        
         placeList.add(
             PlaceInfo(
                 name = name,
@@ -722,6 +725,10 @@ suspend fun fetchTripAdvisorSinglePage(
 
         val reviewsStr = detailsJson.optString("num_reviews", "0")
         val reviewsVal = reviewsStr.toIntOrNull() ?: 0
+
+        if (ratingVal < 4.0 || reviewsVal < 10){
+            continue
+        }
 
         // Для ссылки можно взять Google Maps:
         val mapsLink = "https://www.google.com/maps?q=$latVal,$lngVal"

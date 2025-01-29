@@ -623,9 +623,9 @@ fun convertOsmToGpx(places: List<OsmPlace>): String {
 suspend fun fetchTripAdvisorByGrid(coords: String, apiKey: String): List<PlaceInfo> {
     val (centerLat, centerLng) = coords.split(",").map { it.toDouble() }
 
-    val halfSideMeters = 2000.0
-    val stepMeters = 1000.0
-    val requestRadius = 600
+    val halfSideMeters = 4000.0
+    val stepMeters = 4000.0
+    val requestRadius = 20000
 
     val latDegPerMeter = 1.0 / 111320.0
     val cosLat = cos(centerLat * PI / 180.0)

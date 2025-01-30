@@ -588,8 +588,8 @@ fun parseOverpassJson(jsonResponse: String): List<OsmPlace> {
         val descBuilder = StringBuilder()
         val keys = tags.keys()
         while (keys.hasNext()) {
-            val k = keys.next()
-            val v = tags.optString(k)
+            val k = keys.next().replace("&", "&amp;")
+            val v = tags.optString(k).replace("&", "&amp;")
             descBuilder.append("$k=$v; &lt;br&gt;")
         }
 
@@ -614,8 +614,7 @@ fun convertOsmToGpx(places: List<OsmPlace>): String {
         sb.append("""  <wpt lat="${place.lat}" lon="${place.lon}">""").append("\n")
         val escapedName = place.name.replace("&", "&amp;")
         sb.append("""    <name>$escapedName</name>""").append("\n")
-        val escapedDesc = place.description.replace("&", "&amp;")
-        sb.append("""    <desc>$escapedDesc</desc>""").append("\n")
+        sb.append("""    <desc>${place.description}</desc>""").append("\n")
         sb.append("""  </wpt>""").append("\n")
     }
 

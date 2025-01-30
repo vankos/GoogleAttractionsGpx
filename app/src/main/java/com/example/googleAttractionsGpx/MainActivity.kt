@@ -590,7 +590,7 @@ fun parseOverpassJson(jsonResponse: String): List<OsmPlace> {
         while (keys.hasNext()) {
             val k = keys.next()
             val v = tags.optString(k)
-            descBuilder.append("$k=$v; ")
+            descBuilder.append("$k=$v;<br>")
         }
 
         val googleLink = "https://www.google.com/maps?q=$lat,$lon"

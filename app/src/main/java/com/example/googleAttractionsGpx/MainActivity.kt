@@ -515,6 +515,7 @@ suspend fun fetchOverpassAttractionsSimple(lat: Double, lon: Double, radius: Int
         nwr[tourism=hanami](around:$radius,$lat,$lon);
         nwr["historic"]
            ["historic"!="memorial"]
+           ["historic"!="wayside_shrine"]
            ["historic"!="wayside_cross"](around:$radius,$lat,$lon);
         nwr[attraction=maze](around:$radius,$lat,$lon);
         nwr[geological=outcrop](around:$radius,$lat,$lon);

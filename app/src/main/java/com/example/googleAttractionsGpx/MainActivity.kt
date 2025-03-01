@@ -628,7 +628,7 @@ suspend fun fetchTripAdvisorByGrid(coords: String, apiKey: String): List<PlaceIn
 
     val halfSideMeters = 4000.0
     val stepMeters = 4000.0
-    val requestRadius = 20000
+    val requestRadius = 2000
 
     val latDegPerMeter = 1.0 / 111320.0
     val cosLat = cos(centerLat * PI / 180.0)
@@ -664,13 +664,14 @@ suspend fun fetchTripAdvisorSinglePage(
     radius: Int,
     apiKey: String
 ): List<PlaceInfo> {
-    val nearbyUrl = "https://api.content.tripadvisor.com/api/v1/location/nearby_search" +
+    val nearbyUrl = "https://api.content.tripadvisor.com/api/v1/location/search" +
             "?latLong=$latitude,$longitude" +
             "&category=attractions" +
             "&radius=$radius" +
             "&radiusUnit=m" +
             "&language=en" +
-            "&key=$apiKey"
+            "&key=$apiKey" +
+            "&searchQuery=attractions"
 
     val client = OkHttpClient()
     val nearbyRequest = Request.Builder()

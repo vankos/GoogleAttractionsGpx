@@ -524,7 +524,8 @@ suspend fun fetchOverpassAttractionsSimple(lat: Double, lon: Double, radius: Int
         nwr[highway=trailhead](around:$radius,$lat,$lon);
         nwr[tourism=viewpoint](around:$radius,$lat,$lon);
         nwr[tourism=zoo](around:$radius,$lat,$lon);
-        nwr["aerialway"](around:$radius,$lat,$lon);
+        nwr["aerialway"]
+           ["aerialway"!="pylon"](around:$radius,$lat,$lon);
         nwr[railway=funicular](around:$radius,$lat,$lon);
         nwr[tourism=artwork]
            ["artwork_type"!="statue"]

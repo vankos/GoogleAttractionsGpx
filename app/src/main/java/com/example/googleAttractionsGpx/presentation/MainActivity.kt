@@ -1,4 +1,4 @@
-package com.example.googleAttractionsGpx
+package com.example.googleAttractionsGpx.presentation
 
 import android.Manifest
 import android.content.Context
@@ -24,8 +24,6 @@ import androidx.core.content.FileProvider
 import com.google.android.gms.location.LocationServices
 import kotlinx.coroutines.*
 import okhttp3.OkHttpClient
-import okhttp3.Response
-import okhttp3.Call
 import okhttp3.Request
 import org.json.JSONObject
 import java.io.File

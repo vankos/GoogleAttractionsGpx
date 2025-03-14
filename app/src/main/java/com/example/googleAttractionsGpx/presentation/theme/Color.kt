@@ -1,4 +1,4 @@
-package com.example.googleAttractionsGpx.ui.theme
+package com.example.googleAttractionsGpx.presentation.theme
 
 import androidx.compose.ui.graphics.Color
 

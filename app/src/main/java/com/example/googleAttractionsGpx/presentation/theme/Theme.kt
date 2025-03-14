@@ -1,4 +1,4 @@
-package com.example.googleAttractionsGpx.ui.theme
+package com.example.googleAttractionsGpx.presentation.theme
 
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme

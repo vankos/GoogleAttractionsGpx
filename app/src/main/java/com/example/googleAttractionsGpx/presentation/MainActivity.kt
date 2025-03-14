@@ -1,10 +1,13 @@
 package com.example.googleAttractionsGpx.presentation
 
 import android.Manifest
+import android.app.Activity
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.location.Location
 import android.net.Uri
+import android.app.AlertDialog
+
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -57,8 +60,18 @@ class MainActivity : ComponentActivity() {
     // Request location permission
     private val requestPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted: Boolean ->
-            // You can add logic here for granted/not granted permission
+            if (!isGranted){
+            // Show an alert dialog if permission is not granted
+            AlertDialog.Builder(this)
+                .setTitle("Permission Denied")
+                .setMessage("Location permission is required to use this app. Please grant the permission in the app settings.")
+                .setPositiveButton("OK") { dialog, _ ->
+                    dialog.dismiss()
+                    finishAffinity()
+                }
+                .show()
         }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

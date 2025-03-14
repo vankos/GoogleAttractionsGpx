@@ -1,7 +1,6 @@
 package com.example.googleAttractionsGpx.presentation
 
 import android.Manifest
-import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.location.Location
@@ -10,9 +9,22 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -21,14 +33,21 @@ import androidx.compose.ui.text.intl.Locale
 import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
 import androidx.core.content.FileProvider
+import com.example.googleAttractionsGpx.data.repository.SettingsRepositoryImpl
+import com.example.googleAttractionsGpx.domain.repository.SettingsRepository
 import com.google.android.gms.location.LocationServices
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONObject
 import java.io.File
-import java.net.URLEncoder
 import java.net.URL
+import java.net.URLEncoder
 import java.nio.charset.Charset
 import kotlin.math.PI
 import kotlin.math.cos
@@ -61,12 +80,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun GpxGeneratorScreen() {
     val context = LocalContext.current
-
-    // We only store the API Key in SharedPreferences
-    val sharedPrefs = remember {
-        context.getSharedPreferences("MY_APP_PREFS", Context.MODE_PRIVATE)
-    }
-
+    val settingsRepository : SettingsRepository = SettingsRepositoryImpl(context)
     // Coordinates
     var coordinatesText by remember { mutableStateOf(TextFieldValue("")) }
     // Google API Key
@@ -78,10 +92,10 @@ fun GpxGeneratorScreen() {
 
     // On first screen launch, read the saved key and fill the field
     LaunchedEffect(Unit) {
-        val googleKey = sharedPrefs.getString("API_KEY", "") ?: ""
+        val googleKey = settingsRepository.googleApiKey
         googleApiKeyText = TextFieldValue(googleKey)
 
-        val tripKey = sharedPrefs.getString("TRIP_ADVISOR_API_KEY", "") ?: ""
+        val tripKey = settingsRepository.tripAdvisorApiKey
         tripAdvisorApiKeyText = TextFieldValue(tripKey)
     }
 
@@ -270,11 +284,7 @@ fun GpxGeneratorScreen() {
                 value = googleApiKeyText,
                 onValueChange = { newValue ->
                     googleApiKeyText = newValue
-                    // Each time it changes, we save it to SharedPreferences
-                    with(sharedPrefs.edit()) {
-                        putString("API_KEY", newValue.text)
-                        apply()  // better use apply() to avoid blocking the UI thread
-                    }
+                    settingsRepository.googleApiKey = newValue.text
                 },
                 label = { Text("Places API Key") },
                 modifier = Modifier.fillMaxWidth(),
@@ -286,10 +296,7 @@ fun GpxGeneratorScreen() {
                 value = tripAdvisorApiKeyText,
                 onValueChange = {
                     tripAdvisorApiKeyText = it
-                    with(sharedPrefs.edit()) {
-                        putString("TRIP_ADVISOR_API_KEY", it.text)
-                        apply()
-                    }
+                    settingsRepository.tripAdvisorApiKey = it.text
                 },
                 label = { Text("TripAdvisor API Key") },
                 modifier = Modifier.fillMaxWidth(),

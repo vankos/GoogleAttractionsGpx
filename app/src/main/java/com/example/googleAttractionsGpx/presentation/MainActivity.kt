@@ -608,9 +608,11 @@ fun parseOverpassJson(jsonResponse: String): List<OsmPlace> {
         val descBuilder = StringBuilder()
         val keys = tags.keys()
         while (keys.hasNext()) {
-            val k = keys.next().replace("&", "&amp;")
-            val v = tags.optString(k).replace("&", "&amp;")
-            descBuilder.append("$k=$v; &lt;br&gt;")
+            val k = keys.next()
+            val v = tags.optString(k)
+            val tagline = "$k=$v; <br>"
+            val tagLineEscaped = xmlEscape(tagline)
+            descBuilder.append(tagLineEscaped)
         }
 
         val googleLink = "https://www.google.com/maps?q=$lat,$lon"
@@ -621,6 +623,14 @@ fun parseOverpassJson(jsonResponse: String): List<OsmPlace> {
 
     return result
 }
+
+fun xmlEscape(src: String): String =
+    src.replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace("\"", "&quot;")
+        .replace("'", "&apos;")
+        .replace("&nbsp", "")
 
 /**
  * Convert Overpass (OSM) places to GPX format

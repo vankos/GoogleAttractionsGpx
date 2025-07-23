@@ -2,22 +2,19 @@ package com.example.googleAttractionsGpx.data.repository
 
 import com.example.googleAttractionsGpx.domain.models.Coordinates
 import com.example.googleAttractionsGpx.domain.models.PointData
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.net.URL
 import java.net.URLEncoder
-import java.nio.charset.Charsets
 
 class OsmPlaceGpxGenerator(
     private val centerCoordinates: Coordinates,
     private val radius: Int = 5000
 ) : GpxGeneratorBase() {
 
-    override suspend fun getData(): List<PointData> {
+    override fun getData(coordinates: Coordinates): List<PointData> {
         val osmPlaces = fetchOverpassAttractions(
-            centerCoordinates.latitude,
-            centerCoordinates.longitude,
+            coordinates.latitude,
+            coordinates.longitude,
             radius
         )
         
@@ -30,7 +27,7 @@ class OsmPlaceGpxGenerator(
         }
     }
 
-    private suspend fun fetchOverpassAttractions(lat: Double, lon: Double, radius: Int): List<OsmPlace> {
+    private fun fetchOverpassAttractions(lat: Double, lon: Double, radius: Int): List<OsmPlace> {
         // Build the Overpass QL query
         val query = """
             [out:json];
@@ -97,23 +94,21 @@ class OsmPlaceGpxGenerator(
         """.trimIndent()
 
         val url = URL("https://overpass-api.de/api/interpreter")
-        return withContext(Dispatchers.IO) {
-            // Do a POST request with the query in the request body
-            val connection = url.openConnection()
-            connection.doOutput = true
-            connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
-            connection.connect()
+        // Do a POST request with the query in the request body
+        val connection = url.openConnection()
+        connection.doOutput = true
+        connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
+        connection.connect()
 
-            connection.getOutputStream().use { output ->
-                // Overpass interprets "data" param as the query
-                val postData = "data=" + URLEncoder.encode(query, "UTF-8")
-                output.write(postData.toByteArray(Charsets.UTF_8))
-            }
-
-            val response = connection.getInputStream().use { it.readBytes().toString(Charsets.UTF_8) }
-
-            parseOverpassJson(response)
+        connection.getOutputStream().use { output ->
+            // Overpass interprets "data" param as the query
+            val postData = "data=" + URLEncoder.encode(query, "UTF-8")
+            output.write(postData.toByteArray(Charsets.UTF_8))
         }
+
+        val response = connection.getInputStream().use { it.readBytes().toString(Charsets.UTF_8) }
+
+        return parseOverpassJson(response)
     }
 
     /** Parse the JSON response from Overpass to a list of OsmPlace */

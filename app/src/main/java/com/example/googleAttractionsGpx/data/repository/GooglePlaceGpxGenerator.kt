@@ -2,6 +2,7 @@ package com.example.googleAttractionsGpx.data.repository
 
 import com.example.googleAttractionsGpx.domain.models.Coordinates
 import com.example.googleAttractionsGpx.domain.models.PointData
+import org.json.JSONObject
 import java.net.URL
 import java.net.URLEncoder
 import kotlin.math.PI
@@ -101,28 +102,36 @@ class GooglePlaceGpxGenerator(private val apiKey: String) : GpxGeneratorBase() {
         val placeList = mutableListOf<PlaceInfo>()
         
         try {
-            // Simple JSON parsing without external libraries
-            // Find the "results" array in the JSON response
-            val resultsStart = jsonResponse.indexOf("\"results\":[")
-            if (resultsStart == -1) return emptyList()
-            
-            val resultsArrayStart = jsonResponse.indexOf("[", resultsStart)
-            val resultsArrayEnd = findMatchingBracket(jsonResponse, resultsArrayStart)
-            
-            if (resultsArrayStart == -1 || resultsArrayEnd == -1) return emptyList()
-            
-            val resultsContent = jsonResponse.substring(resultsArrayStart + 1, resultsArrayEnd)
-            
-            // Split by objects (simple approach)
-            val objects = splitJsonObjects(resultsContent)
-            
-            for (objectStr in objects) {
-                val place = parsePlace(objectStr)
-                if (place != null && place.rating >= 4.0 && place.userRatingsTotal >= 20) {
-                    placeList.add(place)
+            val jsonObject = JSONObject(jsonResponse)
+            val resultsArray = jsonObject.optJSONArray("results") ?: return emptyList()
+            for (i in 0 until resultsArray.length()) {
+                val item = resultsArray.getJSONObject(i)
+                val name = item.optString("name")
+                val geometry = item.optJSONObject("geometry")
+                val location = geometry?.optJSONObject("location")
+                val latResult = location?.optDouble("lat", 0.0) ?: 0.0
+                val lngResult = location?.optDouble("lng", 0.0) ?: 0.0
+                val rating = item.optDouble("rating", 0.0)
+                val userRatingsTotal = item.optInt("user_ratings_total", 0)
+                val placeId = item.optString("place_id", "")
+
+                val rawLink = "https://www.google.com/maps/search/?api=1&query=Google&query_place_id=$placeId"
+                if (rating < 4.0 || userRatingsTotal < 20){
+                    continue
                 }
-            }
-        } catch (e: Exception) {
+
+                placeList.add(
+                    PlaceInfo(
+                        name = name,
+                        latitude = latResult,
+                        longitude = lngResult,
+                        rating = rating,
+                        userRatingsTotal = userRatingsTotal,
+                        mapsLink = rawLink
+                    )
+                )
+        }
+        }catch (e: Exception) {
             // Return empty list if parsing fails
         }
         

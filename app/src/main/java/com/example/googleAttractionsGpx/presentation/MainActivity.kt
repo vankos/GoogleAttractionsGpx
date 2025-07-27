@@ -41,6 +41,7 @@ import com.example.googleAttractionsGpx.domain.repository.SettingsRepository
 import com.example.googleAttractionsGpx.data.repository.GooglePlaceGpxGenerator
 import com.example.googleAttractionsGpx.data.repository.OsmPlaceGpxGenerator
 import com.example.googleAttractionsGpx.data.repository.TripAdvisorGpxGenerator
+import com.example.googleAttractionsGpx.data.repository.WikipediaArticlesGpxGenerator
 import com.example.googleAttractionsGpx.domain.models.Coordinates
 import com.example.googleAttractionsGpx.domain.repository.IGpxGenerator
 import com.google.android.gms.location.LocationServices
@@ -252,6 +253,19 @@ fun GpxGeneratorScreen() {
         )
     }
 
+    // 4) Function to request Wikipedia articles and generate GPX
+    fun generateWikipediaGpx() {
+        val generator = WikipediaArticlesGpxGenerator()
+        generateGpxGeneric(
+            generator = generator,
+            loadingMessage = "Loading Wikipedia articles...",
+            successMessage = "Wikipedia GPX created.",
+            errorMessage = "Error loading Wikipedia articles",
+            filePrefix = "Wikipedia",
+            requiresApiKey = false
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(title = { Text("GPX Generator") })
@@ -324,6 +338,14 @@ fun GpxGeneratorScreen() {
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text("Generate GPX (TripAdvisor)")
+            }
+
+            // Button for Wikipedia
+            Button(
+                onClick = { generateWikipediaGpx() },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Generate GPX (Wikipedia)")
             }
 
             // Display the result (GPX) as text (or status info)

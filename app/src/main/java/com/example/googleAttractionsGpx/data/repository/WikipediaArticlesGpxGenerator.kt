@@ -72,21 +72,30 @@ class WikipediaArticlesGpxGenerator(private val radius: Double = 5.0) : GpxGener
         
         try {
             val sparqlQuery = """
-            SELECT ?item ?itemLabel ?lat ?lon (GROUP_CONCAT(DISTINCT ?sitelink; separator=", ") AS ?sitelinks) WHERE {
-              SERVICE wikibase:around {
-                ?item wdt:P625 ?location.
-                bd:serviceParam wikibase:center "Point(${coordinates.longitude},${coordinates.latitude})"^^geo:wktLiteral.
-                bd:serviceParam wikibase:radius  "${radiusKm}" .
-              }
-              ?item wdt:P625 ?coord .
-              ?item p:P625/psv:P625 ?coordinate_node .
-              ?coordinate_node wikibase:geoLatitude ?lat .
-              ?coordinate_node wikibase:geoLongitude ?lon .
-            
-              ?sitelink schema:about ?item .
-              ?sitelink schema:isPartOf ?wiki .
-              FILTER(CONTAINS(STR(?wiki), "wikipedia.org"))
-            
+            SELECT ?item ?itemLabel ?lat ?lon 
+            (GROUP_CONCAT(DISTINCT ?sitelink; separator=", ") AS ?sitelinks)
+            (GROUP_CONCAT(DISTINCT ?instanceOfLabel; separator=", ") AS ?instanceOfLabels)
+            WHERE {
+                    {
+                     SELECT ?item ?lat ?lon ?sitelink ?instanceOfLabel
+                     WHERE {
+                              SERVICE wikibase:around {
+                                ?item wdt:P625 ?location.
+                                bd:serviceParam wikibase:center "Point(${coordinates.longitude},${coordinates.latitude})"^^geo:wktLiteral.
+                                bd:serviceParam wikibase:radius  "${radiusKm}" .
+                              }
+                              ?item wdt:P625 ?coord .
+                              ?item p:P625/psv:P625 ?coordinate_node .
+                              ?coordinate_node wikibase:geoLatitude ?lat .
+                              ?coordinate_node wikibase:geoLongitude ?lon .
+                            
+                              ?sitelink schema:about ?item .
+                              ?sitelink schema:isPartOf ?wiki .
+                              FILTER(CONTAINS(STR(?wiki), "wikipedia.org"))
+                              OPTIONAL { ?item wdt:P31 ?instanceOf . }
+                              SERVICE wikibase:label { bd:serviceParam wikibase:language "${systemLanguage},en,[AUTO_LANGUAGE]". }
+                    }
+                  }
               SERVICE wikibase:label { bd:serviceParam wikibase:language "${systemLanguage},en,[AUTO_LANGUAGE]". }
             }
             GROUP BY ?item ?itemLabel ?lat ?lon

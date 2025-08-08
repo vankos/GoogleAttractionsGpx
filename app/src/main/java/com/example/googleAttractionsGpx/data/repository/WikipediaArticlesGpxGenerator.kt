@@ -119,12 +119,13 @@ class WikipediaArticlesGpxGenerator(private val radius: Double = 5.0) : GpxGener
                 
                 val label = binding.getJSONObject("itemLabel").getString("value")
                 val wikiLinks = binding.getJSONObject("sitelinks").getString("value")
+                val instancesOf = binding.getJSONObject("instanceOfLabels").getString("value")
 
                 // Extract coordinates from separate lat/lon fields
                 val lat = binding.getJSONObject("lat").getDouble("value")
                 val lon = binding.getJSONObject("lon").getDouble("value")
                 
-                places.add(WikidataPlace( label, lat, lon, wikiLinks))
+                places.add(WikidataPlace( label, lat, lon, wikiLinks, instancesOf))
             }
             
         } catch (e: Exception) {
@@ -138,6 +139,7 @@ class WikipediaArticlesGpxGenerator(private val radius: Double = 5.0) : GpxGener
         val label: String,
         val latitude: Double,
         val longitude: Double,
-        val wikipediaLinks: String
+        val wikipediaLinks: String,
+        val instancesOf : String
     )
 }

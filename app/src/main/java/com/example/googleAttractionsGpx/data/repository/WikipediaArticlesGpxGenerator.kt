@@ -9,7 +9,6 @@ import java.net.URL
 import java.net.URLEncoder
 import java.util.Locale
 import org.json.JSONObject
-import org.json.JSONArray
 
 class WikipediaArticlesGpxGenerator(private val radius: Double = 5.0) : GpxGeneratorBase() {
     
@@ -19,9 +18,6 @@ class WikipediaArticlesGpxGenerator(private val radius: Double = 5.0) : GpxGener
         val pointDataList = mutableListOf<PointData>()
         
         try {
-            // Get country code for language prioritization
-            val countryCode = getCountryCode(coordinates)
-            
             // Query Wikidata for articles near coordinates
             val wikidataResults = queryWikidataPlaces(coordinates, radius)
             
@@ -38,7 +34,9 @@ class WikipediaArticlesGpxGenerator(private val radius: Double = 5.0) : GpxGener
         return wikidataPlaces.map { place ->
             // Create description with Wikipedia links
             val description = if (place.wikipediaLinks.isNotEmpty()) {
-                "Wikipedia articles: ${place.wikipediaLinks}"
+                val formattedLinks = formatWikipediaLinks(place.wikipediaLinks)
+                "Instance of:\n${place.instanceOf}; " +
+                "\n\nWikipedia articles:\n${formattedLinks}"
             } else {
                 ""
             }
@@ -51,20 +49,26 @@ class WikipediaArticlesGpxGenerator(private val radius: Double = 5.0) : GpxGener
         }
     }
     
-    private fun getCountryCode(coordinates: Coordinates): String {
-        return try {
-            val url = "https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${coordinates.latitude}&longitude=${coordinates.longitude}&localityLanguage=en"
-            val connection = URL(url).openConnection() as HttpURLConnection
-            connection.requestMethod = "GET"
-            connection.setRequestProperty("User-Agent", "WikipediaGpxGenerator/1.0")
+    private fun formatWikipediaLinks(wikipediaLinks: String): String {
+        if (wikipediaLinks.isEmpty()) return ""
+        
+        // Parse individual Wikipedia links from comma-separated string
+        val links = wikipediaLinks.split(", ").map { it.trim() }.filter { it.isNotEmpty() }
+        
+        // Sort links to prioritize system language first
+        val sortedLinks = links.sortedWith { link1, link2 ->
+            val isSystemLang1 = link1.contains("${systemLanguage}.wikipedia.org")
+            val isSystemLang2 = link2.contains("${systemLanguage}.wikipedia.org")
             
-            val response = BufferedReader(InputStreamReader(connection.inputStream)).use { it.readText() }
-            val json = JSONObject(response)
-            
-            json.optString("countryCode", "US").lowercase()
-        } catch (e: Exception) {
-            "us" // Default fallback
+            when {
+                isSystemLang1 && !isSystemLang2 -> -1  // link1 is system language, comes first
+                !isSystemLang1 && isSystemLang2 -> 1   // link2 is system language, comes first
+                else -> 0  // keep original order for other links
+            }
         }
+        
+        // Join links with empty lines between them
+        return sortedLinks.joinToString("\n\n")
     }
     
     private fun queryWikidataPlaces(coordinates: Coordinates, radiusKm: Double): List<WikidataPlace> {
@@ -119,13 +123,13 @@ class WikipediaArticlesGpxGenerator(private val radius: Double = 5.0) : GpxGener
                 
                 val label = binding.getJSONObject("itemLabel").getString("value")
                 val wikiLinks = binding.getJSONObject("sitelinks").getString("value")
-                val instancesOf = binding.getJSONObject("instanceOfLabels").getString("value")
+                val instanceOf = binding.getJSONObject("instanceOfLabels").getString("value")
 
                 // Extract coordinates from separate lat/lon fields
                 val lat = binding.getJSONObject("lat").getDouble("value")
                 val lon = binding.getJSONObject("lon").getDouble("value")
                 
-                places.add(WikidataPlace( label, lat, lon, wikiLinks, instancesOf))
+                places.add(WikidataPlace( label, lat, lon, wikiLinks, instanceOf))
             }
             
         } catch (e: Exception) {
@@ -140,6 +144,6 @@ class WikipediaArticlesGpxGenerator(private val radius: Double = 5.0) : GpxGener
         val latitude: Double,
         val longitude: Double,
         val wikipediaLinks: String,
-        val instancesOf : String
+        val instanceOf : String
     )
 }

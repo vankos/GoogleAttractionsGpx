@@ -8,7 +8,12 @@ data class Coordinates(
     
     companion object {
         fun fromString(coords: String): Coordinates {
-            val (lat, lng) = coords.split(",").map { it.toDouble() }
+            val parts = if (coords.contains(",")) {
+                coords.split(",").map { it.trim().toDouble() }
+            } else {
+                coords.split(" ").filter { it.isNotBlank() }.map { it.toDouble() }
+            }
+            val (lat, lng) = parts
             return Coordinates(lat, lng)
         }
     }

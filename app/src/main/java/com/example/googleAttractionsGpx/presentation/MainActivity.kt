@@ -158,9 +158,7 @@ fun GpxGeneratorScreen() {
             
             if (hasRequiredInputs) {
                 try {
-                    // Parse coordinates
-                    val (lat, lng) = coords.split(",").map { it.toDouble() }
-                    val centerCoordinates = Coordinates(lat, lng)
+                    val centerCoordinates = Coordinates.fromString(coords)
                     
                     // Get data using the provided generator
                     val pointDataList = generator.getData(centerCoordinates)
@@ -224,8 +222,8 @@ fun GpxGeneratorScreen() {
     fun generateOsmGpx() {
         val coords = coordinatesText.text.trim()
         if (coords.isNotEmpty()) {
-            val (lat, lng) = coords.split(",").map { it.toDouble() }
-            val generator = OsmPlaceGpxGenerator(Coordinates(lat, lng))
+            val coordinates = Coordinates.fromString(coords)
+            val generator = OsmPlaceGpxGenerator(coordinates)
             generateGpxGeneric(
                 generator = generator,
                 loadingMessage = "Loading OSM data...",
@@ -366,8 +364,8 @@ private fun getFileName(coords: String, prefix: String): String {
 }
 
     suspend fun getLocationNameFromCoordinates(coords: String): String? {
-        val (lat, lng) = coords.split(",").map { it.toDouble() }
-        val queryUrl = "https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&accept-language=${Locale.current}"
+        val coords = Coordinates.fromString(coords);
+        val queryUrl = "https://nominatim.openstreetmap.org/reverse?lat=${coords.latitude}&lon=${coords.longitude}&format=json&accept-language=${Locale.current}"
         return try {
             val jsonResponse = withContext(Dispatchers.IO) {
                 URL(queryUrl).readText()

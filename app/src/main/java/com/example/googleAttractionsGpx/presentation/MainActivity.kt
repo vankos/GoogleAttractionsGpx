@@ -368,7 +368,11 @@ private fun getFileName(coords: String, prefix: String): String {
         val queryUrl = "https://nominatim.openstreetmap.org/reverse?lat=${coords.latitude}&lon=${coords.longitude}&format=json&accept-language=${Locale.current}"
         return try {
             val jsonResponse = withContext(Dispatchers.IO) {
-                URL(queryUrl).readText()
+                val connection = URL(queryUrl).openConnection() as java.net.HttpURLConnection
+                connection.setRequestProperty("User-Agent", "GoogleAttractionsGpx/1.0")
+                connection.connectTimeout = 10000
+                connection.readTimeout = 10000
+                connection.inputStream.bufferedReader().use { it.readText() }
             }
 
             val jsonObject = JSONObject(jsonResponse)

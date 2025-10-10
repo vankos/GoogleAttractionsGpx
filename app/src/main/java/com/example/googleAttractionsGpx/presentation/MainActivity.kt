@@ -398,8 +398,8 @@ private fun getFileName(coords: String, prefix: String): String {
             town.isNotBlank() -> town
             city.isNotBlank() -> city
             province.isNotBlank() -> province
-            region.isNotBlank() -> region
             state.isNotBlank() -> state
+            region.isNotBlank() -> region
             country.isNotBlank() -> country
             displayName.isNotBlank() -> displayName
             else -> ""

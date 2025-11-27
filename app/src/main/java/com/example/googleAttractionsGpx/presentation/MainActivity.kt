@@ -42,6 +42,7 @@ import com.example.googleAttractionsGpx.data.repository.GooglePlaceGpxGenerator
 import com.example.googleAttractionsGpx.data.repository.OsmPlaceGpxGenerator
 import com.example.googleAttractionsGpx.data.repository.TripAdvisorGpxGenerator
 import com.example.googleAttractionsGpx.data.repository.WikipediaArticlesGpxGenerator
+import com.example.googleAttractionsGpx.data.repository.NominatimService
 import com.example.googleAttractionsGpx.domain.models.Coordinates
 import com.example.googleAttractionsGpx.domain.repository.IGpxGenerator
 import com.google.android.gms.location.LocationServices
@@ -356,55 +357,17 @@ fun GpxGeneratorScreen() {
 }
 
 private fun getFileName(coords: String, prefix: String): String {
-    val locationName: String? = runBlocking {
-        getLocationNameFromCoordinates(coords)
+    val locationName: String? = try {
+        val coordinates = Coordinates.fromString(coords)
+        val service = NominatimService()
+        // Use java.util.Locale for system language
+        val language = java.util.Locale.getDefault().language
+        service.getLocationName(coordinates, language)
+    } catch (e: Exception) {
+        null
     }
     val now = java.time.LocalDateTime.now().toString().replace(":", "-")
     return "${prefix}_${locationName}_$now.gpx"
 }
 
-    suspend fun getLocationNameFromCoordinates(coords: String): String? {
-        val coords = Coordinates.fromString(coords);
-        val queryUrl = "https://nominatim.openstreetmap.org/reverse?lat=${coords.latitude}&lon=${coords.longitude}&format=json&accept-language=${Locale.current}"
-        return try {
-            val jsonResponse = withContext(Dispatchers.IO) {
-                val connection = URL(queryUrl).openConnection() as java.net.HttpURLConnection
-                connection.setRequestProperty("User-Agent", "GoogleAttractionsGpx/1.0")
-                connection.connectTimeout = 10000
-                connection.readTimeout = 10000
-                connection.inputStream.bufferedReader().use { it.readText() }
-            }
-
-            val jsonObject = JSONObject(jsonResponse)
-            getLocationNameFromLocationInfo(jsonObject)
-        } catch (ex: Exception) {
-            null
-        }
-    }
-
-    private fun getLocationNameFromLocationInfo(jsonObject: JSONObject?): String? {
-        val address = jsonObject?.optJSONObject("address")
-        val district = address?.optString("city_district", "")?: ""
-        val town = address?.optString("town", "")?: ""
-        val city = address?.optString("city", "")?: ""
-        val province = address?.optString("province", "")?: ""
-        val state = address?.optString("state", "")?: ""
-        val region = address?.optString("region", "")?: ""
-        val country = address?.optString("country", "")?: ""
-        val displayName = address?.optString("display_name", "")?: ""
-        val final = when {
-
-            district.isNotBlank() -> district
-            town.isNotBlank() -> town
-            city.isNotBlank() -> city
-            province.isNotBlank() -> province
-            state.isNotBlank() -> state
-            region.isNotBlank() -> region
-            country.isNotBlank() -> country
-            displayName.isNotBlank() -> displayName
-            else -> ""
-        }
-
-        return final
-    }
 

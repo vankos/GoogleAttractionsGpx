@@ -46,6 +46,7 @@ import com.example.googleAttractionsGpx.data.repository.OsmPlaceGpxGenerator
 import com.example.googleAttractionsGpx.data.repository.TripAdvisorGpxGenerator
 import com.example.googleAttractionsGpx.data.repository.WikipediaArticlesGpxGenerator
 import com.example.googleAttractionsGpx.data.repository.WikidataAttractionsGpxGenerator
+import com.example.googleAttractionsGpx.data.repository.AllAttractionsGenerator
 import com.example.googleAttractionsGpx.data.repository.NominatimService
 import com.example.googleAttractionsGpx.domain.models.Coordinates
 import com.example.googleAttractionsGpx.domain.repository.IGpxGenerator
@@ -283,6 +284,23 @@ fun GpxGeneratorScreen() {
         )
     }
 
+    // 6) Function to request Combined attractions and generate GPX
+    fun generateCombinedGpx() {
+        val googleKey = googleApiKeyText.text.trim()
+        val tripKey = tripAdvisorApiKeyText.text.trim()
+        
+        val generator = AllAttractionsGenerator(googleKey, tripKey)
+        generateGpxGeneric(
+            generator = generator,
+            loadingMessage = "Loading All Attractions (Google, OSM, TripAdvisor, Wikidata)...",
+            successMessage = "All Attractions GPX created.",
+            errorMessage = "Error loading All Attractions data",
+            filePrefix = "AllAttractions",
+            requiresApiKey = true,
+            apiKey = googleKey // Using google key as proxy for checking requirements, generic function checks if not empty
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(title = { Text("GPX Generator") })
@@ -367,6 +385,14 @@ fun GpxGeneratorScreen() {
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text("Generate GPX (Wikidata Attractions)")
+                }
+
+                // Button for All Attractions
+                Button(
+                    onClick = { generateCombinedGpx() },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Generate GPX (All Attractions)")
                 }
             }
 

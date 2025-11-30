@@ -14,9 +14,12 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
+import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -61,6 +64,8 @@ import java.net.URLEncoder
 import java.nio.charset.Charset
 import kotlin.math.PI
 import kotlin.math.cos
+
+import androidx.compose.ui.tooling.preview.Preview
 
 class MainActivity : ComponentActivity() {
 
@@ -315,29 +320,38 @@ fun GpxGeneratorScreen() {
                 visualTransformation = PasswordVisualTransformation(),
             )
 
-            // Button for Google Places GPX
-            Button(
-                onClick = { generateGpx() },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Generate GPX (Google)")
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Group main GPX generators
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                // Button for Google Places GPX
+                Button(
+                    onClick = { generateGpx() },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Generate GPX (Google)")
+                }
+
+                // Button for OSM Overpass GPX
+                Button(
+                    onClick = { generateOsmGpx() },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Generate GPX (OSM)")
+                }
+
+                // Button for TripAdvisor
+                Button(
+                    onClick = { generateGpxTripAdvisor() },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Generate GPX (TripAdvisor)")
+                }
             }
 
-            // Button for OSM Overpass GPX
-            Button(
-                onClick = { generateOsmGpx() },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Generate GPX (OSM)")
-            }
-
-            // Button for TripAdvisor
-            Button(
-                onClick = { generateGpxTripAdvisor() },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Generate GPX (TripAdvisor)")
-            }
+            Spacer(modifier = Modifier.height(16.dp))
+            Divider()
+            Spacer(modifier = Modifier.height(16.dp))
 
             // Button for Wikipedia
             Button(
@@ -368,6 +382,12 @@ private fun getFileName(coords: String, prefix: String): String {
     }
     val now = java.time.LocalDateTime.now().toString().replace(":", "-")
     return "${prefix}_${locationName}_$now.gpx"
+}
+
+@Preview(showBackground = true)
+@Composable
+fun GpxGeneratorScreenPreview() {
+    GpxGeneratorScreen()
 }
 
 

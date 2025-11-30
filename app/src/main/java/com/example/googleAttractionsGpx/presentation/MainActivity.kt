@@ -45,6 +45,7 @@ import com.example.googleAttractionsGpx.data.repository.GooglePlaceGpxGenerator
 import com.example.googleAttractionsGpx.data.repository.OsmPlaceGpxGenerator
 import com.example.googleAttractionsGpx.data.repository.TripAdvisorGpxGenerator
 import com.example.googleAttractionsGpx.data.repository.WikipediaArticlesGpxGenerator
+import com.example.googleAttractionsGpx.data.repository.WikidataAttractionsGpxGenerator
 import com.example.googleAttractionsGpx.data.repository.NominatimService
 import com.example.googleAttractionsGpx.domain.models.Coordinates
 import com.example.googleAttractionsGpx.domain.repository.IGpxGenerator
@@ -64,7 +65,6 @@ import java.net.URLEncoder
 import java.nio.charset.Charset
 import kotlin.math.PI
 import kotlin.math.cos
-
 import androidx.compose.ui.tooling.preview.Preview
 
 class MainActivity : ComponentActivity() {
@@ -270,6 +270,19 @@ fun GpxGeneratorScreen() {
         )
     }
 
+    // 5) Function to request Wikidata attractions and generate GPX
+    fun generateWikidataAttractionsGpx() {
+        val generator = WikidataAttractionsGpxGenerator()
+        generateGpxGeneric(
+            generator = generator,
+            loadingMessage = "Loading Wikidata attractions...",
+            successMessage = "Wikidata attractions GPX created.",
+            errorMessage = "Error loading Wikidata attractions",
+            filePrefix = "WikidataAttractions",
+            requiresApiKey = false
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(title = { Text("GPX Generator") })
@@ -346,6 +359,14 @@ fun GpxGeneratorScreen() {
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text("Generate GPX (TripAdvisor)")
+                }
+
+                // Button for Wikidata Attractions
+                Button(
+                    onClick = { generateWikidataAttractionsGpx() },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Generate GPX (Wikidata Attractions)")
                 }
             }
 

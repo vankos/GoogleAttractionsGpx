@@ -190,7 +190,7 @@ fun GpxGeneratorScreen() {
                     }
                     
                     withContext(Dispatchers.Main) {
-                        gpxResult = successMessage
+                        gpxResult = "$successMessage (${pointDataList.size} points generated)"
                         context.startActivity(Intent.createChooser(intent, "Open GPX"))
                     }
                 } catch (e: Exception) {

@@ -31,7 +31,7 @@ class GooglePlaceGpxGenerator(private val apiKey: String) : GpxGeneratorBase() {
         val centerLng = coordinates.longitude
 
         // Grid parameters
-        val halfSideMeters = 4000.0   // ±4000m from the center (8km total)
+        val halfSideMeters = 5000.0   // ±5000m from the center (10km total)
         val stepMeters = 1000.0       // step for each cell
         val requestRadius = 600       // Google Places radius for each point
 

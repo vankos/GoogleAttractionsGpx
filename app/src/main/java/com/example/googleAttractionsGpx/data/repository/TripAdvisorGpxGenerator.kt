@@ -30,9 +30,9 @@ class TripAdvisorGpxGenerator(private val apiKey: String) : GpxGeneratorBase() {
         val centerLat = coordinates.latitude
         val centerLng = coordinates.longitude
 
-        val halfSideMeters = 4000.0
-        val stepMeters = 4000.0
-        val requestRadius = 2000
+        val halfSideMeters = 5000.0
+        val stepMeters = 5000.0
+        val requestRadius = 2500
 
         val latDegPerMeter = 1.0 / 111320.0
         val cosLat = cos(centerLat * PI / 180.0)

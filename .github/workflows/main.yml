@@ -41,13 +41,16 @@ jobs:
     - name: List APK directory
       run: ls -R app/build/outputs/apk/release
 
+    - name: Rename APK
+      run: cp app/build/outputs/apk/release/app-release.apk app/build/outputs/apk/release/AttractionsGpx${VERSION}.apk
+
     - name: Upload to GitHub Release
       uses: ncipollo/release-action@v1
       with:
-        artifacts: app/build/outputs/apk/release/app-release.apk
+        artifacts: app/build/outputs/apk/release/AttractionsGpx${VERSION}.apk
         token: ${{ secrets.GITHUB_TOKEN }}
-        tag: ${{ github.ref }}
-        release_name: Release ${{ github.ref_name }}
+        tag: ${{ github.ref_name }}
+        name: Release ${{ github.ref_name }}
         body: "Automatically generated release from GitHub Actions"
         draft: false
         prerelease: false

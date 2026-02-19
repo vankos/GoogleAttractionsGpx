@@ -149,7 +149,8 @@ fun GpxGeneratorScreen() {
         filePrefix: String,
         requiresApiKey: Boolean = false,
         apiKey: String = "",
-        radiusMeters: Int = 3000
+        radiusMeters: Int = 3000,
+        successMessageBuilder: ((pointCount: Int) -> String)? = null
     ) {
         val scope = CoroutineScope(Dispatchers.IO)
         scope.launch {
@@ -191,7 +192,8 @@ fun GpxGeneratorScreen() {
                     }
                     
                     withContext(Dispatchers.Main) {
-                        gpxResult = "$successMessage (${pointDataList.size} points generated)"
+                        gpxResult = successMessageBuilder?.invoke(pointDataList.size)
+                            ?: "$successMessage (${pointDataList.size} points generated)"
                         context.startActivity(Intent.createChooser(intent, "Open GPX"))
                     }
                 } catch (e: Exception) {
@@ -283,8 +285,10 @@ fun GpxGeneratorScreen() {
     fun generateCombinedGpx() {
         val googleKey = googleApiKeyText.text.trim()
         val tripKey = tripAdvisorApiKeyText.text.trim()
-        
-        val generator = AllAttractionsGenerator(googleKey, tripKey)
+        val sourceCounts = mutableMapOf<String, Int>()
+        val generator = AllAttractionsGenerator(googleKey, tripKey) { name, count ->
+            sourceCounts[name] = count
+        }
         generateGpxGeneric(
             generator = generator,
             loadingMessage = "Loading All Attractions (Google, OSM, TripAdvisor, Wikidata)...",
@@ -292,7 +296,11 @@ fun GpxGeneratorScreen() {
             errorMessage = "Error loading All Attractions data",
             filePrefix = "AllAttractions",
             requiresApiKey = true,
-            apiKey = googleKey // Using google key as proxy for checking requirements, generic function checks if not empty
+            apiKey = googleKey,
+            successMessageBuilder = { total ->
+                val stats = sourceCounts.entries.joinToString(", ") { "${it.key}: ${it.value}" }
+                "All Attractions GPX created. $stats (total: $total points)"
+            }
         )
     }
 

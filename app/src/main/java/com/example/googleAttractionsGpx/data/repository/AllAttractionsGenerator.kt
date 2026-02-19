@@ -8,7 +8,8 @@ import kotlinx.coroutines.runBlocking
 
 class AllAttractionsGenerator(
     private val googleApiKey: String,
-    private val tripAdvisorApiKey: String
+    private val tripAdvisorApiKey: String,
+    private val onSourceComplete: ((sourceName: String, count: Int) -> Unit)? = null
 ) : GpxGeneratorBase() {
 
     override fun getData(coordinates: Coordinates, radiusMeters: Int): List<PointData> = runBlocking(Dispatchers.IO) {
@@ -58,10 +59,21 @@ class AllAttractionsGenerator(
 
         // Aggregate results
         val allPoints = mutableListOf<PointData>()
-        allPoints.addAll(googleDeferred.await())
-        allPoints.addAll(tripAdvisorDeferred.await())
-        allPoints.addAll(osmDeferred.await())
-        allPoints.addAll(wikidataDeferred.await())
+        val googlePoints = googleDeferred.await()
+        allPoints.addAll(googlePoints)
+        onSourceComplete?.invoke("Google", googlePoints.size)
+
+        val tripAdvisorPoints = tripAdvisorDeferred.await()
+        allPoints.addAll(tripAdvisorPoints)
+        onSourceComplete?.invoke("TripAdvisor", tripAdvisorPoints.size)
+
+        val osmPoints = osmDeferred.await()
+        allPoints.addAll(osmPoints)
+        onSourceComplete?.invoke("OSM", osmPoints.size)
+
+        val wikidataPoints = wikidataDeferred.await()
+        allPoints.addAll(wikidataPoints)
+        onSourceComplete?.invoke("Wikidata", wikidataPoints.size)
 
         allPoints
     }

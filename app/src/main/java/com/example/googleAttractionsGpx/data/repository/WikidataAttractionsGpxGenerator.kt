@@ -10,15 +10,15 @@ import java.net.URLEncoder
 import java.util.Locale
 import org.json.JSONObject
 
-class WikidataAttractionsGpxGenerator(private val radius: Double = 5.0) : GpxGeneratorBase() {
+class WikidataAttractionsGpxGenerator : GpxGeneratorBase() {
     
     private val systemLanguage = Locale.getDefault().language
     
-    override fun getData(coordinates: Coordinates): List<PointData> {
+    override fun getData(coordinates: Coordinates, radiusMeters: Int): List<PointData> {
         val pointDataList = mutableListOf<PointData>()
         
         try {
-            val wikidataResults = queryWikidataPlaces(coordinates, radius)
+            val wikidataResults = queryWikidataPlaces(coordinates, radiusMeters / 1000.0)
             // Convert Wikidata results to PointData
             pointDataList.addAll(convertWikidataToPointData(wikidataResults))
         } catch (e: Exception) {

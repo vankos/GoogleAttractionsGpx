@@ -19,20 +19,20 @@ class TripAdvisorGpxGenerator(private val apiKey: String) : GpxGeneratorBase() {
         val locationId: String
     )
 
-    override fun getData(coordinates: Coordinates): List<PointData> {
-        val places = fetchTripAdvisorByGrid(coordinates)
+    override fun getData(coordinates: Coordinates, radiusMeters: Int): List<PointData> {
+        val places = fetchTripAdvisorByGrid(coordinates, radiusMeters)
         return places.map { place ->
             convertTripAdvisorPlaceToPointData(place)
         }
     }
 
-    private fun fetchTripAdvisorByGrid(coordinates: Coordinates): List<TripAdvisorPlace> {
+    private fun fetchTripAdvisorByGrid(coordinates: Coordinates, radiusMeters: Int): List<TripAdvisorPlace> {
         val centerLat = coordinates.latitude
         val centerLng = coordinates.longitude
 
-        val halfSideMeters = 5000.0
+        val halfSideMeters = radiusMeters.toDouble()
         val stepMeters = 5000.0
-        val requestRadius = 2500
+        val requestRadius = (radiusMeters / 2).coerceAtMost(2500)
 
         val latDegPerMeter = 1.0 / 111320.0
         val cosLat = cos(centerLat * PI / 180.0)

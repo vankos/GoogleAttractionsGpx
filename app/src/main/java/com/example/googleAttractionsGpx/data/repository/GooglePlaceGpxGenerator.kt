@@ -19,19 +19,19 @@ class GooglePlaceGpxGenerator(private val apiKey: String) : GpxGeneratorBase() {
         val mapsLink: String
     )
 
-    override fun getData(coordinates: Coordinates): List<PointData> {
-        val places = fetchPlacesByGrid(coordinates, apiKey)
+    override fun getData(coordinates: Coordinates, radiusMeters: Int): List<PointData> {
+        val places = fetchPlacesByGrid(coordinates, apiKey, radiusMeters)
         return places.map { placeInfo ->
             convertPlaceInfoToPointData(placeInfo)
         }
     }
 
-    private fun fetchPlacesByGrid(coordinates: Coordinates, apiKey: String): List<PlaceInfo> {
+    private fun fetchPlacesByGrid(coordinates: Coordinates, apiKey: String, radiusMeters: Int): List<PlaceInfo> {
         val centerLat = coordinates.latitude
         val centerLng = coordinates.longitude
 
         // Grid parameters
-        val halfSideMeters = 5000.0   // ±5000m from the center (10km total)
+        val halfSideMeters = radiusMeters.toDouble()
         val stepMeters = 1000.0       // step for each cell
         val requestRadius = 600       // Google Places radius for each point
 

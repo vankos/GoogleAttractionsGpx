@@ -6,16 +6,13 @@ import org.json.JSONObject
 import java.net.URL
 import java.net.URLEncoder
 
-class OsmPlaceGpxGenerator(
-    private val centerCoordinates: Coordinates,
-    private val radius: Int = 5000
-) : GpxGeneratorBase() {
+class OsmPlaceGpxGenerator : GpxGeneratorBase() {
 
-    override fun getData(coordinates: Coordinates): List<PointData> {
+    override fun getData(coordinates: Coordinates, radiusMeters: Int): List<PointData> {
         val osmPlaces = fetchOverpassAttractions(
             coordinates.latitude,
             coordinates.longitude,
-            radius
+            radiusMeters
         )
         
         return osmPlaces.map { osmPlace ->

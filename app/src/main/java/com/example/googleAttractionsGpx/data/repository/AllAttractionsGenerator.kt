@@ -8,16 +8,15 @@ import kotlinx.coroutines.runBlocking
 
 class AllAttractionsGenerator(
     private val googleApiKey: String,
-    private val tripAdvisorApiKey: String,
-    private val radiusMeters: Int = 5000
+    private val tripAdvisorApiKey: String
 ) : GpxGeneratorBase() {
 
-    override fun getData(coordinates: Coordinates): List<PointData> = runBlocking(Dispatchers.IO) {
+    override fun getData(coordinates: Coordinates, radiusMeters: Int): List<PointData> = runBlocking(Dispatchers.IO) {
         // Google Places
         val googleDeferred = async {
             try {
                 val googleGenerator = GooglePlaceGpxGenerator(googleApiKey)
-                googleGenerator.getData(coordinates)
+                googleGenerator.getData(coordinates, radiusMeters)
             } catch (e: Exception) {
                 e.printStackTrace()
                 emptyList<PointData>()
@@ -28,7 +27,7 @@ class AllAttractionsGenerator(
         val tripAdvisorDeferred = async {
             try {
                 val tripAdvisorGenerator = TripAdvisorGpxGenerator(tripAdvisorApiKey)
-                tripAdvisorGenerator.getData(coordinates)
+                tripAdvisorGenerator.getData(coordinates, radiusMeters)
             } catch (e: Exception) {
                 e.printStackTrace()
                 emptyList<PointData>()
@@ -38,8 +37,8 @@ class AllAttractionsGenerator(
         // OpenStreetMap
         val osmDeferred = async {
             try {
-                val osmGenerator = OsmPlaceGpxGenerator(coordinates, radiusMeters)
-                osmGenerator.getData(coordinates)
+                val osmGenerator = OsmPlaceGpxGenerator()
+                osmGenerator.getData(coordinates, radiusMeters)
             } catch (e: Exception) {
                 e.printStackTrace()
                 emptyList<PointData>()
@@ -49,9 +48,8 @@ class AllAttractionsGenerator(
         // Wikidata
         val wikidataDeferred = async {
             try {
-                val radiusKm = radiusMeters / 1000.0
-                val wikidataGenerator = WikidataAttractionsGpxGenerator(radiusKm)
-                wikidataGenerator.getData(coordinates)
+                val wikidataGenerator = WikidataAttractionsGpxGenerator()
+                wikidataGenerator.getData(coordinates, radiusMeters)
             } catch (e: Exception) {
                 e.printStackTrace()
                 emptyList<PointData>()

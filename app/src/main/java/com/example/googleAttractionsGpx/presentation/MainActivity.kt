@@ -148,7 +148,8 @@ fun GpxGeneratorScreen() {
         errorMessage: String,
         filePrefix: String,
         requiresApiKey: Boolean = false,
-        apiKey: String = ""
+        apiKey: String = "",
+        radiusMeters: Int = 3000
     ) {
         val scope = CoroutineScope(Dispatchers.IO)
         scope.launch {
@@ -168,7 +169,7 @@ fun GpxGeneratorScreen() {
                     val centerCoordinates = Coordinates.fromString(coords)
                     
                     // Get data using the provided generator
-                    val pointDataList = generator.getData(centerCoordinates)
+                    val pointDataList = generator.getData(centerCoordinates, radiusMeters)
                     
                     // Generate GPX from the data
                     val gpxString = generator.generateGpx(pointDataList)
@@ -227,21 +228,15 @@ fun GpxGeneratorScreen() {
 
     // 2) Function to request Overpass Turbo API and generate GPX
     fun generateOsmGpx() {
-        val coords = coordinatesText.text.trim()
-        if (coords.isNotEmpty()) {
-            val coordinates = Coordinates.fromString(coords)
-            val generator = OsmPlaceGpxGenerator(coordinates)
-            generateGpxGeneric(
-                generator = generator,
-                loadingMessage = "Loading OSM data...",
-                successMessage = "OSM GPX created.",
-                errorMessage = "Error loading OSM",
-                filePrefix = "OSM",
-                requiresApiKey = false
-            )
-        } else {
-            gpxResult = "Please provide coordinates."
-        }
+        val generator = OsmPlaceGpxGenerator()
+        generateGpxGeneric(
+            generator = generator,
+            loadingMessage = "Loading OSM data...",
+            successMessage = "OSM GPX created.",
+            errorMessage = "Error loading OSM",
+            filePrefix = "OSM",
+            requiresApiKey = false
+        )
     }
 
     // 3) Function to request TripAdvisor API and generate GPX

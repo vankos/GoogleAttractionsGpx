@@ -34,7 +34,7 @@ class OsmPlaceGpxGenerator(
             (node["tourism"="attraction"](around:$radius,$lat,$lon);
             way["tourism"="attraction"](around:$radius,$lat,$lon);
             relation["tourism"="attraction"](around:$radius,$lat,$lon);
-            nwr["leisure"="park"](around:$radius,$lat,$lon);
+            nwr["leisure"="park"][~"^name"~"."](around:$radius,$lat,$lon);
             nwr["amenity"="feeding place"](around:$radius,$lat,$lon);
             nwr["landuse"="village_green"](around:$radius,$lat,$lon);
             nwr["man_made"="lighthouse"](around:$radius,$lat,$lon);

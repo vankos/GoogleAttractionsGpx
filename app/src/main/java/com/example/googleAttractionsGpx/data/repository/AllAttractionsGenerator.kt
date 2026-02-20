@@ -9,7 +9,7 @@ import kotlinx.coroutines.runBlocking
 class AllAttractionsGenerator(
     private val googleApiKey: String,
     private val tripAdvisorApiKey: String,
-    private val onSourceComplete: ((sourceName: String, count: Int) -> Unit)? = null
+    private val onSourceComplete: ((sourceName: String, count: Int, error: Exception?) -> Unit)? = null
 ) : GpxGeneratorBase() {
 
     override fun getData(coordinates: Coordinates, radiusMeters: Int): List<PointData> = runBlocking(Dispatchers.IO) {
@@ -20,6 +20,7 @@ class AllAttractionsGenerator(
                 googleGenerator.getData(coordinates, radiusMeters)
             } catch (e: Exception) {
                 e.printStackTrace()
+                onSourceComplete?.invoke("Google", 0, e)
                 emptyList<PointData>()
             }
         }
@@ -31,6 +32,7 @@ class AllAttractionsGenerator(
                 tripAdvisorGenerator.getData(coordinates, radiusMeters)
             } catch (e: Exception) {
                 e.printStackTrace()
+                onSourceComplete?.invoke("TripAdvisor", 0, e)
                 emptyList<PointData>()
             }
         }
@@ -42,6 +44,7 @@ class AllAttractionsGenerator(
                 osmGenerator.getData(coordinates, radiusMeters)
             } catch (e: Exception) {
                 e.printStackTrace()
+                onSourceComplete?.invoke("OSM", 0, e)
                 emptyList<PointData>()
             }
         }
@@ -53,6 +56,7 @@ class AllAttractionsGenerator(
                 wikidataGenerator.getData(coordinates, radiusMeters)
             } catch (e: Exception) {
                 e.printStackTrace()
+                onSourceComplete?.invoke("Wikidata", 0, e)
                 emptyList<PointData>()
             }
         }
@@ -61,19 +65,19 @@ class AllAttractionsGenerator(
         val allPoints = mutableListOf<PointData>()
         val googlePoints = googleDeferred.await()
         allPoints.addAll(googlePoints)
-        onSourceComplete?.invoke("Google", googlePoints.size)
+        onSourceComplete?.invoke("Google", googlePoints.size, null)
 
         val tripAdvisorPoints = tripAdvisorDeferred.await()
         allPoints.addAll(tripAdvisorPoints)
-        onSourceComplete?.invoke("TripAdvisor", tripAdvisorPoints.size)
+        onSourceComplete?.invoke("TripAdvisor", tripAdvisorPoints.size, null)
 
         val osmPoints = osmDeferred.await()
         allPoints.addAll(osmPoints)
-        onSourceComplete?.invoke("OSM", osmPoints.size)
+        onSourceComplete?.invoke("OSM", osmPoints.size, null)
 
         val wikidataPoints = wikidataDeferred.await()
         allPoints.addAll(wikidataPoints)
-        onSourceComplete?.invoke("Wikidata", wikidataPoints.size)
+        onSourceComplete?.invoke("Wikidata", wikidataPoints.size, null)
 
         allPoints
     }

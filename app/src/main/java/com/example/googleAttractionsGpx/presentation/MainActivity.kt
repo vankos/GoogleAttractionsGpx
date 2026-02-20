@@ -286,8 +286,13 @@ fun GpxGeneratorScreen() {
         val googleKey = googleApiKeyText.text.trim()
         val tripKey = tripAdvisorApiKeyText.text.trim()
         val sourceCounts = mutableMapOf<String, Int>()
-        val generator = AllAttractionsGenerator(googleKey, tripKey) { name, count ->
-            sourceCounts[name] = count
+        val sourceErrors = mutableMapOf<String, String>()
+        val generator = AllAttractionsGenerator(googleKey, tripKey) { name, count, error ->
+            if (error != null) {
+                sourceErrors[name] = error.message ?: error.javaClass.simpleName
+            } else {
+                sourceCounts[name] = count
+            }
         }
         generateGpxGeneric(
             generator = generator,
@@ -299,7 +304,10 @@ fun GpxGeneratorScreen() {
             apiKey = googleKey,
             successMessageBuilder = { total ->
                 val stats = sourceCounts.entries.joinToString(", ") { "${it.key}: ${it.value}" }
-                "All Attractions GPX created. $stats (total: $total points)"
+                val errors = if (sourceErrors.isNotEmpty())
+                    "\nErrors: " + sourceErrors.entries.joinToString(", ") { "${it.key}: ${it.value}" }
+                else ""
+                "All Attractions GPX created. $stats (total: $total points)$errors"
             }
         )
     }

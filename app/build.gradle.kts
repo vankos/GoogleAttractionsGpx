@@ -12,8 +12,8 @@ android {
         applicationId = "com.example.googleAttractionsGpx"
         minSdk = 28
         targetSdk = 35
-        versionCode = 1
-        versionName = project.findProperty("versionName")?.toString() ?: "1.0.0"
+        versionCode = 5
+        versionName = project.findProperty("versionName")?.toString() ?: "1.4.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -46,6 +46,7 @@ android {
     }
     buildFeatures {
         compose = true
+        aidl = true
     }
 }
 

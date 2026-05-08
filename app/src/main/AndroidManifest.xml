@@ -37,4 +37,9 @@
         </provider>
     </application>
 
+    <queries>
+        <package android:name="net.osmand" />
+        <package android:name="net.osmand.plus" />
+    </queries>
+
 </manifest>

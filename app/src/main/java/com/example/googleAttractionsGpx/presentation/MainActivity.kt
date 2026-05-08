@@ -116,7 +116,8 @@ class MainActivity : ComponentActivity() {
                 NavHost(navController = navController, startDestination = "main") {
                     composable("main") {
                         GpxGeneratorScreen(
-                            onNavigateToSettings = { navController.navigate("settings") }
+                            onNavigateToSettings = { navController.navigate("settings") },
+                            onNavigateToCorridor = { navController.navigate("track-corridor") }
                         )
                     }
                     composable("settings") {
@@ -128,6 +129,11 @@ class MainActivity : ComponentActivity() {
                     composable("settings/need-photo-exclusions") {
                         NeedPhotoExclusionsScreen(onNavigateBack = { navController.popBackStack() })
                     }
+                    composable("track-corridor") {
+                        TrackCorridorScreen(
+                            onNavigateBack = { navController.popBackStack() }
+                        )
+                    }
                 }
             }
         }
@@ -138,7 +144,7 @@ class MainActivity : ComponentActivity() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun GpxGeneratorScreen(onNavigateToSettings: () -> Unit = {}) {
+fun GpxGeneratorScreen(onNavigateToSettings: () -> Unit = {}, onNavigateToCorridor: () -> Unit = {}) {
     val context = LocalContext.current
     val settingsRepository: SettingsRepository = remember { SettingsRepositoryImpl(context) }
     val scope = rememberCoroutineScope()
@@ -261,6 +267,14 @@ fun GpxGeneratorScreen(onNavigateToSettings: () -> Unit = {}) {
             TopAppBar(
                 title = { Text("Stuff around") },
                 actions = {
+                    IconButton(onClick = onNavigateToCorridor) {
+                        Icon(
+                            painter = androidx.compose.ui.res.painterResource(
+                                android.R.drawable.ic_menu_directions
+                            ),
+                            contentDescription = "Track Corridor"
+                        )
+                    }
                     IconButton(onClick = onNavigateToSettings) {
                         Icon(Icons.Filled.Settings, contentDescription = "Settings")
                     }
